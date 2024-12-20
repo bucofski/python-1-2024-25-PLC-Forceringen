@@ -1,7 +1,7 @@
 import struct
 
 # Open and read the file, splitting into words
-with open("../TDS.dat", "r") as f:
+with open("TDS.dat", "r") as f:
     words = f.read().split("\n")
 
 

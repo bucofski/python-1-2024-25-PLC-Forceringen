@@ -52,7 +52,7 @@ def convert_variable_list(common_elements):
     return processed_list
 
 if __name__ == "__main__":
-    words_list1 = read_and_parse_file("../DONP.MAP")
+    words_list1 = read_and_parse_file("DONP.MAP")
     words_list = read_and_parse_file("for.dat")
     converted_list = convert_and_process_list(words_list)
     common_elements = find_common_first_elements(words_list1, converted_list)
