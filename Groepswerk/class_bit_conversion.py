@@ -3,7 +3,6 @@ from datetime import datetime
 from class_making_querry import DataProcessor, FileReader
 from class_database import DatabaseSearcher
 
-
 class BitConversion:
     def __init__(self, data_list):
         """Initialize with a list of dictionaries from the database search."""
@@ -51,7 +50,6 @@ class BitConversion:
             processed_list.append(sublist)
 
         return processed_list
-
 
 if __name__ == "__main__":
     start = datetime.now()
