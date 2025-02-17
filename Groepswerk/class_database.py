@@ -22,7 +22,6 @@ class DatabaseSearcher:
             return None
 
     def search(self, item_list, query_template):
-        print(item_list)
         """
         Searches the database with a given query template.
 
