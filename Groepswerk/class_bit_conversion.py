@@ -8,9 +8,11 @@ class BitConversion:
         """Initialize with a list of dictionaries from the database search."""
         self.data_list = data_list
 
-    def convert_variable_list(self):
+    def convert_variable_list(self, DataProcessor, words_list):
         """Convert and process values based on type."""
-        processed_list = []
+
+        processed_list = DataProcessor(words_list).convert_and_process_list()
+
         for sublist in self.data_list:
             value = sublist.get("Value", [])
             type_ = sublist.get("Type")
@@ -57,9 +59,9 @@ if __name__ == "__main__":
     file_reader = FileReader("for.dat")
     words_list = file_reader.read_and_parse_file()
 
-    # Process the list using DataProcessor by creating an instance
-    data_processor = DataProcessor(words_list)
-    processed_list = data_processor.convert_and_process_list()
+    # # Process the list using DataProcessor by creating an instance
+    # processed_list = DataProcessor(words_list).convert_and_process_list()
+    # #processed_list = data_processor.convert_and_process_list()
 
     # Initialize database searcher
     db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
@@ -69,11 +71,12 @@ if __name__ == "__main__":
     custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
 
     # Perform search
-    results = searcher.search(processed_list, query_template=custom_query)
+    results = searcher.search(DataProcessor(words_list).convert_and_process_list(), query_template=custom_query)
 
     # Process results through BitConversion
     bit_converter = BitConversion(results)
-    common_elements = bit_converter.convert_variable_list()  # FIXED: Call method on instance
+    common_elements = bit_converter.convert_variable_list(DataProcessor, words_list)
+  # FIXED: Call method on instance
 
     end = datetime.now()
     print(f"Time taken: {(end - start).total_seconds()} seconds")
