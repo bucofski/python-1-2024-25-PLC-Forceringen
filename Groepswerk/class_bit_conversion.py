@@ -8,79 +8,50 @@ class BitConversion:
         """Initialize with a list of dictionaries from the database search."""
         self.data_list = data_list
 
-    def convert_variable_list(self, DataProcessor, words_list):
-        """Convert and process values based on type."""
-
-        processed_list = DataProcessor(words_list).convert_and_process_list()
-
+    def convert_variable_list(self):
+        """Convert and process values based on type. Modifies self.data_list in-place."""
         for sublist in self.data_list:
             value = sublist.get("Value", [])
             type_ = sublist.get("Type")
 
-            if type_ == 'REAL':
-                try:
+            try:
+                if type_ == 'REAL' and value:
                     int_value = int(value[0], 16)
                     float_value = struct.unpack('!f', struct.pack('!I', int_value))[0]
                     sublist["Value"] = str(float_value)
-                except (ValueError, IndexError):
-                    sublist["Value"] = "Invalid REAL"
 
-            elif type_ == 'LINT':
-                try:
+                elif type_ == 'LINT' and value:
                     sublist["Value"] = int(value[0], 16)
-                except (ValueError, IndexError):
-                    sublist["Value"] = "Invalid LINT"
 
-            elif type_ == 'DOUBLE':
-                try:
-                    # Combine them into a single 64-bit hex string (big-endian order)
+                elif type_ == 'DOUBLE' and value:
                     hex_combined = ''.join(value[::-1])
-
-                    # Convert to integer
                     int_value = int(hex_combined, 16)
-
-                    # Interpret as IEEE 754 double-precision float
                     double_precision_float = struct.unpack('>d', struct.pack('>Q', int_value))[0]
-
-                    # If you're expecting a double value as a return, you can optionally update sublist["Value"];
-                    # otherwise, you might want to continue processing other sublists.
                     sublist["Value"] = str(double_precision_float)
 
-                except (ValueError, IndexError) as e:
-                    sublist["Value"] = "Invalid DOUBLE"
+            except (ValueError, IndexError, struct.error):
+                sublist["Value"] = f"Invalid {type_}"
 
-            processed_list.append(sublist)
-
-        return processed_list
+        return self.data_list
 
 if __name__ == "__main__":
     start = datetime.now()
-    # Instantiate FileReader and read the file
-    file_reader = FileReader("for.dat")
-    words_list = file_reader.read_and_parse_file()
 
-    # # Process the list using DataProcessor by creating an instance
-    # processed_list = DataProcessor(words_list).convert_and_process_list()
-    # #processed_list = data_processor.convert_and_process_list()
+    # Read and process the input file only once
+    words_list = FileReader("for.dat").read_and_parse_file()
+    processed_words = list(DataProcessor.convert_and_process_list(words_list))
 
-    # Initialize database searcher
+    # Initialize database searcher and perform search within context manager
     db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
-    searcher = DatabaseSearcher(db_path)
-
-    # Perform database search
     custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
+    with DatabaseSearcher(db_path) as searcher:
+        results = searcher.search(processed_words, query_template=custom_query)
 
-    # Perform search
-    results = searcher.search(DataProcessor(words_list).convert_and_process_list(), query_template=custom_query)
-
-    # Process results through BitConversion
+    # Convert bits
     bit_converter = BitConversion(results)
-    common_elements = bit_converter.convert_variable_list(DataProcessor, words_list)
-  # FIXED: Call method on instance
+    common_elements = bit_converter.convert_variable_list()
 
     end = datetime.now()
     print(f"Time taken: {(end - start).total_seconds()} seconds")
-
-    # Print results
     for sublist in common_elements:
         print(sublist)

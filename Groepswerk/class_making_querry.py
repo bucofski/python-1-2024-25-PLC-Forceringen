@@ -1,4 +1,3 @@
-
 class FileReader:
     """Reads a file and splits content into lists of words."""
 
@@ -15,26 +14,19 @@ class FileReader:
 class DataProcessor:
     """Processes word lists by converting values."""
 
-    def __init__(self, word_lists):
-        self.word_lists = word_lists
-
-    def convert_and_process_list(self):
-        """Convert and process each list of words."""
-        processed_list = []
-
-        for sublist in self.word_lists:
+    @staticmethod
+    def convert_and_process_list(word_lists):
+        """Process each list of words, yielding results."""
+        for sublist in word_lists:
             if sublist:
-                # Convert the first value from hex to ascii + decimal
                 first_part = sublist[0]
                 ascii_hex, decimal_hex = first_part[:2], first_part[2:]
                 try:
                     ascii_char = chr(int(ascii_hex, 16))
                     decimal_number = str(int(decimal_hex, 16)).zfill(5)
-                    processed_list.append([ascii_char + decimal_number] + sublist[1:])
+                    yield [ascii_char + decimal_number] + sublist[1:]
                 except ValueError:
-                    # Handle any conversion errors
-                    processed_list.append(sublist)
-        return processed_list
+                    yield sublist
 
 
 if __name__ == "__main__":
@@ -42,9 +34,8 @@ if __name__ == "__main__":
     file_reader = FileReader("for.dat")
     words_list = file_reader.read_and_parse_file()
 
-    # Process the list using DataProcessor by creating an instance
-    data_processor = DataProcessor(words_list)
-    processed_list = data_processor.convert_and_process_list()
+    # Process the list using DataProcessor statically
+    processed_list = list(DataProcessor.convert_and_process_list(words_list))
 
     for sublist in processed_list:
         print(sublist)
