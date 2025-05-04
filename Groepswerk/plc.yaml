@@ -1,4 +1,5 @@
 local_base_dir: "/python-1-2024-25-PLC-Forceringen/"
+
 # this is so because if there is a difference in PLC connection
 # then it can be changed on PLC level
 username: &username "pi"
