@@ -1,17 +1,10 @@
+import yaml
 import paramiko
 import os
 
 
 class SFTPClient:
     def __init__(self, hostname, port, username, password):
-        """
-        Initializes the SFTPClient with connection details.
-
-        :param hostname: The hostname or IP address of the SSH server.
-        :param port: The port number for SSH connection.
-        :param username: The SSH username.
-        :param password: The SSH password.
-        """
         self.hostname = hostname
         self.port = port
         self.username = username
@@ -20,107 +13,48 @@ class SFTPClient:
         self.sftp = None
 
     def connect(self):
-        """Establishes an SSH and SFTP connection."""
+        """Establish SSH and SFTP connection."""
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
         try:
             self.ssh.connect(
-                hostname=self.hostname,
-                port=self.port,
-                username=self.username,
-                password=self.password
+                hostname=self.hostname, port=self.port,
+                username=self.username, password=self.password
             )
-            print(f"Connected to {self.hostname} on port {self.port}")
             self.sftp = self.ssh.open_sftp()
-        except paramiko.AuthenticationException:
-            print("Authentication failed, please verify your credentials")
-        except paramiko.SSHException as e:
-            print(f"Unable to establish SSH connection: {e}")
+            print(f"Connected to {self.hostname}:{self.port}")
         except Exception as e:
-            print(f"Exception occurred: {e}")
+            print(f"Connection error: {e}")
 
     def download_file(self, remote_file, local_file):
-        """
-        Downloads a single file from the remote server to the local machine.
-        Ensures that the local directory exists; if not, it creates it.
-
-        :param remote_file: The path to the file on the remote server.
-        :param local_file: The path where the file will be saved locally.
-        """
+        """Download a remote file to a local path, creating directories if needed."""
         if self.sftp is None:
-            print("SFTP connection not established. Call connect() first.")
+            print("Call connect() before download.")
             return
-
-        # Extract the directory from the local file path
-        local_dir = os.path.dirname(local_file)
-        if local_dir and not os.path.exists(local_dir):
-            try:
-                os.makedirs(local_dir, exist_ok=True)
-                print(f"Created local directory: {local_dir}")
-            except OSError as e:
-                print(f"Failed to create directory {local_dir}: {e}")
-                return
-
+        os.makedirs(os.path.dirname(local_file), exist_ok=True)
         try:
             self.sftp.get(remote_file, local_file)
-            print(f"Downloaded {remote_file} to {local_file}")
-        except FileNotFoundError:
-            print(f"Remote file {remote_file} does not exist.")
+            print(f"Downloaded {remote_file} → {local_file}")
         except Exception as e:
-            print(f"Failed to download file: {e}")
+            print(f"Error downloading {remote_file}: {e}")
 
     def download_files(self, remote_files, local_base_dir):
-        """
-        Downloads multiple files from the remote server to the local machine.
-        Each local file is named based on its directory structure, e.g.,
-        'Btest/Btest/for.dat' becomes 'Btest_Btest.dat'.
-
-        :param remote_files: A list of remote file paths to download.
-        :param local_base_dir: The base directory on the local machine where files will be saved.
-        """
+        """Download multiple files with dynamic local naming, creating base dir if needed."""
         if self.sftp is None:
-            print("SFTP connection not established. Call connect() first.")
+            print("Call connect() before download.")
             return
-
-        # Ensure the local base directory exists
-        if not os.path.exists(local_base_dir):
-            try:
-                os.makedirs(local_base_dir, exist_ok=True)
-                print(f"Created base local directory: {local_base_dir}")
-            except OSError as e:
-                print(f"Failed to create base directory {local_base_dir}: {e}")
-                return
+        os.makedirs(local_base_dir, exist_ok=True)
 
         for remote_file in remote_files:
-            try:
-                # Normalize the remote file path
-                normalized_remote = os.path.normpath(remote_file)
-
-                # Split the path into parts
-                path_parts = normalized_remote.split(os.sep)
-
-                # Ensure there are at least two directories in the path
-                if len(path_parts) < 3:
-                    print(f"Remote file path '{remote_file}' does not have enough directory levels.")
-                    continue
-
-                # Extract the first and second directory names
-                first_dir = path_parts[-3]
-                second_dir = path_parts[-2]
-
-                # Construct the local file name as <first_dir>_<second_dir>.dat
-                local_file_name = f"{first_dir}_{second_dir}.dat"
-                local_file_path = os.path.join(local_base_dir, local_file_name)
-
-                # Download the file
-                self.download_file(remote_file, local_file_path)
-
-            except Exception as e:
-                print(f"Error processing {remote_file}: {e}")
+            parts = os.path.normpath(remote_file).split(os.sep)
+            if len(parts) < 3:
+                print(f"Path '{remote_file}' doesn't have enough levels.")
+                continue
+            local_name = f"{parts[-3]}_{parts[-2]}.dat"
+            local_path = os.path.join(local_base_dir, local_name)
+            self.download_file(remote_file, local_path)
 
     def close(self):
-        """Closes the SFTP and SSH connections."""
         if self.sftp:
             self.sftp.close()
         if self.ssh:
@@ -128,30 +62,48 @@ class SFTPClient:
         print("Connections closed.")
 
 
-# Example usage
 if __name__ == "__main__":
-    # Initialize the SFTP client with your credentials
+    # Load config from yaml
+    with open("plc.yaml", "r") as f:
+        config = yaml.safe_load(f)
+
+    sftp_hosts = config.get("sftp_hosts", [])
+    if not sftp_hosts:
+        print("No sftp_hosts found in configuration.")
+        exit(1)
+
+    # Show a numbered list of available hosts
+    print("Available SFTP hosts:")
+    for idx, host in enumerate(sftp_hosts, 1):
+        disp_name = host.get('hostname', host.get('ip_address'))
+        print(f"{idx}. {disp_name} ({host.get('ip_address', 'no IP')})")
+
+    # Ask user to select
+    while True:
+        try:
+            selection = int(input(f"Select a host to connect (1-{len(sftp_hosts)}): "))
+            if 1 <= selection <= len(sftp_hosts):
+                break
+            else:
+                print("Invalid selection.")
+        except ValueError:
+            print("Please enter a number.")
+
+    selected_host = sftp_hosts[selection - 1]
+    hostname = selected_host.get('ip_address', selected_host.get('hostname'))
+    port = selected_host['port']
+    username = selected_host['username']
+    password = selected_host['password']
+    remote_files = selected_host.get('remote_files', [])
+    local_base_dir = selected_host.get('local_base_dir', '')
+
+    print(f"\nConnecting to {hostname} ({selected_host.get('hostname')})...")
     client = SFTPClient(
-        hostname='192.168.0.217',
-        port=22,
-        username='pi',
-        password='raspberry'
+        hostname=hostname,
+        port=port,
+        username=username,
+        password=password,
     )
-
-    # Establish the connection
     client.connect()
-
-    # List of remote files to download
-    remote_files = [
-        '/home/pi/Btest/NIET/for.dat',
-        '/home/pi/Btest/TDS/for.dat',
-    ]
-
-    # Define the base local directory where files will be saved
-    local_base_dir = '/python-1-2024-25-PLC-Forceringen/'
-
-    # Download multiple files with dynamic naming
     client.download_files(remote_files, local_base_dir)
-
-    # Close the connection
     client.close()
