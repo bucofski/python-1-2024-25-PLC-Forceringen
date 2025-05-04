@@ -1,0 +1,23 @@
+sftp_hosts:
+  - hostname: "Btest"
+    ip_address: "192.168.0.217"
+    port: 22
+    username: "pi"
+    password: "raspberry"
+    remote_files:
+      - "/home/pi/BTEST/NIET/for.dat"
+      - "/home/pi/BTEST/KMOR/for.dat"
+      - "/home/pi/BTEST/WT1/for.dat"
+      - "/home/pi/BTEST/WT2/for.dat"
+      - "/home/pi/BTEST/GLOBAL/for.dat"
+      - "/home/pi/BTEST/TEST/for.dat"
+    local_base_dir: "/python-1-2024-25-PLC-Forceringen/host1/"
+  - hostname: "Btest2"
+    ip_address: "192.168.0.218"
+    port: 22
+    username: "pi2"
+    password: "raspberry2"
+    remote_files:
+      - "/home/pi/Btest2/NIET/for.dat"
+      - "/home/pi/Btest2/TDS/for.dat"
+    local_base_dir: "/python-1-2024-25-PLC-Forceringen/host2/"
