@@ -5,7 +5,6 @@ from class_making_querry import FileReader, DataProcessor
 from class_database import DatabaseSearcher
 from class_bit_conversion import BitConversion
 from datetime import datetime
-import re
 
 
 def select_sftp_host(config):
@@ -46,7 +45,17 @@ def main():
     username = host_cfg['username']
     password = host_cfg['password']
     remote_files = host_cfg.get('remote_files', [])
-    local_base_dir = host_cfg.get('local_base_dir', '')
+
+    # --- Get global local_base_dir ---
+    base_local_dir = config.get('local_base_dir', '')
+    host_name = host_cfg.get('hostname')
+    if base_local_dir and host_name:
+        local_base_dir = os.path.join(base_local_dir, host_name)
+    else:
+        print("Error: local_base_dir or hostname is missing in the configuration or selected host.")
+        return
+
+    # ... (rest of code unchanged)
 
     # Step 2: Download files over SFTP
     client = SFTPClient(hostname, port, username, password)
@@ -56,6 +65,10 @@ def main():
 
     # Step 3: Process each downloaded file
     # (Assume you want to process all .dat files in local_base_dir)
+    if not os.path.exists(local_base_dir):
+        print(f"Error: Local directory '{local_base_dir}' does not exist after download.")
+        return
+
     for filename in os.listdir(local_base_dir):
         if filename.endswith(".dat"):
             local_file_path = os.path.join(local_base_dir, filename)
@@ -67,17 +80,7 @@ def main():
             # Step 4: Database search
             # Adjust DB path as needed
             db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
-
-            def extract_table_from_filename(filename):
-                # Assumes filename format: ANYTHING_TABLENAME.dat
-                match = re.match(r".*_(.*?)\.dat$", filename, re.IGNORECASE)
-                return match.group(1).upper() if match else None
-
-            table_name = extract_table_from_filename(filename)
-            if not table_name:
-                raise ValueError("Could not extract table name.")
-
-            custom_query = f"SELECT *, SecondComment FROM {table_name} WHERE Name IN ({{placeholders}})"
+            custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
             with DatabaseSearcher(db_path) as searcher:
                 results = searcher.search(processed_list, query_template=custom_query)
 
