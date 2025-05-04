@@ -14,20 +14,18 @@ def select_sftp_host(config):
         return None
 
     print("Available SFTP hosts:")
-    for idx, host in enumerate(sftp_hosts, 1):
+    for host in sftp_hosts:
         disp_name = host.get('hostname', host.get('ip_address'))
-        print(f"{idx}. {disp_name} ({host.get('ip_address', 'no IP')})")
+        print(f"- {disp_name} ({host.get('ip_address', 'no IP')})")
 
+    hostnames = [host.get('hostname') for host in sftp_hosts if 'hostname' in host]
     while True:
-        try:
-            selection = int(input(f"Select a host to connect (1-{len(sftp_hosts)}): "))
-            if 1 <= selection <= len(sftp_hosts):
-                break
-            else:
-                print("Invalid selection.")
-        except ValueError:
-            print("Please enter a number.")
-    return sftp_hosts[selection - 1]
+        selection = input(f"Type the hostname to connect: ").strip()
+        if selection in hostnames:
+            selected_host = next(host for host in sftp_hosts if host.get('hostname') == selection)
+            return selected_host
+        else:
+            print("Invalid hostname. Please try again.")
 
 
 def main():
