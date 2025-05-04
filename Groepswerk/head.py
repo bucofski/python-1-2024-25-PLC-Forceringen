@@ -69,19 +69,21 @@ def main():
 
     for filename in os.listdir(local_base_dir):
         if filename.endswith(".dat"):
+            # Extract the part between the underscore and the .dat extension
+            table_part = filename.split("_")[-1].replace(".dat", "")
+
+            # Now use this part for your query!
+            custom_query = f"SELECT *, SecondComment FROM {table_part} WHERE Name IN ({{placeholders}})"
+
             local_file_path = os.path.join(local_base_dir, filename)
-            print(f"\n--- Processing {local_file_path} ---")
+            print(f"\n--- Processing {local_file_path} (table: {table_part}) ---")
             file_reader = FileReader(local_file_path)
             words_list = file_reader.read_and_parse_file()
             processed_list = list(DataProcessor.convert_and_process_list(words_list))
 
-            # Step 4: Database search
-            # Adjust DB path as needed
             db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
-            custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
             with DatabaseSearcher(db_path) as searcher:
                 results = searcher.search(processed_list, query_template=custom_query)
-
             # Step 5: Bit Conversion
             bit_converter = BitConversion(results)
             common_elements = bit_converter.convert_variable_list()
