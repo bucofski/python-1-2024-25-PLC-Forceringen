@@ -81,7 +81,10 @@ def main():
             words_list = file_reader.read_and_parse_file()
             processed_list = list(DataProcessor.convert_and_process_list(words_list))
 
-            db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
+            db_path = host_cfg.get('db_path')
+            if not db_path:
+                print("Error: db_path not specified for selected host.")
+                return
             with DatabaseSearcher(db_path) as searcher:
                 results = searcher.search(processed_list, query_template=custom_query)
             # Step 5: Bit Conversion

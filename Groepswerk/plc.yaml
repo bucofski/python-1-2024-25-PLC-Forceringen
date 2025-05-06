@@ -19,7 +19,7 @@ sftp_hosts:
       - "/home/pi/BTEST/WT2/for.dat"
       - "/home/pi/BTEST/GLOBAL/for.dat"
       - "/home/pi/BTEST/TEST/for.dat"
-
+    db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
   - hostname: "TDS"
     ip_address: "192.168.0.217"
     port: *port
@@ -28,3 +28,4 @@ sftp_hosts:
     remote_files:
       - "/home/pi/TDS/NIET/for.dat"
       - "/home/pi/TDS/KMOR/for.dat"
+    db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
