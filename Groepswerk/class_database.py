@@ -77,7 +77,7 @@ class DatabaseSearcher:
 
 if __name__ == "__main__":
     start = datetime.now()
-    db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
+    db_path = r"C:/Users/SIDTOVY/OneDrive - ArcelorMittal/Desktop/controller_l.mdb"
 
     # process and search within a single context (connection)
     with DatabaseSearcher(db_path) as searcher:
@@ -85,6 +85,7 @@ if __name__ == "__main__":
         words_list = file_reader.read_and_parse_file()
         processed_list = list(DataProcessor.convert_and_process_list(words_list))
         custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
+        #custom_query = "SELECT Name, MnemoK, [MnemoK'], MnemoS, Comment, SecondComment, Type FROM NIET WHERE Name IN ({placeholders})"
         results = searcher.search(processed_list, query_template=custom_query)
 
     end = datetime.now()
