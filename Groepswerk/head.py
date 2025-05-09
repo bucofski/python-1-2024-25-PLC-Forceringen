@@ -99,5 +99,62 @@ def main():
     print(f"\nTime taken: {(end - start).total_seconds()} seconds")
 
 
+def run_main_with_host(config, selected_host_name):
+    start = datetime.now()
+
+    sftp_hosts = config.get("sftp_hosts", [])
+    host_cfg = next((host for host in sftp_hosts if host.get("hostname") == selected_host_name), None)
+    if not host_cfg:
+        print(f"Host {selected_host_name} not found.")
+        return
+
+    hostname = host_cfg.get('ip_address', host_cfg.get('hostname'))
+    port = host_cfg['port']
+    username = host_cfg['username']
+    password = host_cfg['password']
+    remote_files = host_cfg.get('remote_files', [])
+
+    base_local_dir = config.get('local_base_dir', '')
+    host_name = host_cfg.get('hostname')
+    if base_local_dir and host_name:
+        local_base_dir = os.path.join(base_local_dir, host_name)
+    else:
+        print("Error: local_base_dir or hostname is missing in the configuration or selected host.")
+        return
+
+    client = SFTPClient(hostname, port, username, password)
+    client.connect()
+    client.download_files(remote_files, local_base_dir)
+    client.close()
+
+    if not os.path.exists(local_base_dir):
+        print(f"Error: Local directory '{local_base_dir}' does not exist after download.")
+        return
+
+    for filename in os.listdir(local_base_dir):
+        if filename.endswith(".dat"):
+            table_part = filename.split("_")[-1].replace(".dat", "")
+            custom_query = f"SELECT *, SecondComment FROM {table_part} WHERE Name IN ({{placeholders}})"
+            local_file_path = os.path.join(local_base_dir, filename)
+            print(f"\n--- Processing {local_file_path} (table: {table_part}) ---")
+            file_reader = FileReader(local_file_path)
+            words_list = file_reader.read_and_parse_file()
+            processed_list = list(DataProcessor.convert_and_process_list(words_list))
+
+            db_path = host_cfg.get('db_path')
+            if not db_path:
+                print("Error: db_path not specified for selected host.")
+                return
+            with DatabaseSearcher(db_path) as searcher:
+                results = searcher.search(processed_list, query_template=custom_query)
+            bit_converter = BitConversion(results)
+            common_elements = bit_converter.convert_variable_list()
+            for sublist in common_elements:
+                print(sublist)
+
+    end = datetime.now()
+    print(f"\nTime taken: {(end - start).total_seconds()} seconds")
+
+
 if __name__ == "__main__":
     main()
