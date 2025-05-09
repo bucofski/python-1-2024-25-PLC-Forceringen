@@ -37,3 +37,15 @@ sftp_hosts:
       - "/home/pi/BTEST/WT1/for.dat"
     db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
 
+  - hostname: "S1E"
+    ip_address: "192.168.0.217"
+    port: "22"
+    username: "pi"
+    password: "raspberry"
+    remote_files:
+      - "/home/pi/S1E/1/for.dat"
+      - "/home/pi/S1E/2/for.dat"
+      - "/home/pi/S1E/3/for.dat"
+      - "/home/pi/S1E/4/for.dat"
+    db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
+
