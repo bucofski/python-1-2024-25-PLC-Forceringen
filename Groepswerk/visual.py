@@ -25,14 +25,19 @@ host_options = {
 }
 
 app_ui = ui.page_fluid(
+    ui.h2("PLC Forceringen"),
+    ui.br(),
     ui.input_select(
         "host_select",
         "Select a PLC Host:",
         choices=host_options
     ),
     ui.output_text("selected_host"),
+    ui.br(),
     ui.input_action_button("start_btn", "Start"),
-    # Removed 'height' argument from output_text_verbatim
+    ui.br(),
+    ui.br(),
+    ui.h2("Output"),
     ui.output_text_verbatim("terminal_output", placeholder=True)
 )
 
