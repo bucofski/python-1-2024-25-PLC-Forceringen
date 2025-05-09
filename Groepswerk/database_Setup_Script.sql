@@ -13,7 +13,7 @@ CREATE TABLE unified_data (
     second_comment TEXT,                      -- Secondary comment for the variable
     variable_type VARCHAR(50),                -- Data type of the variable (e.g., LINT, BOOL)
     variable_value DOUBLE PRECISION,          -- Value of the variable
-    UNIQUE (plc_name, resource_number, variable_name_id) -- Unique key to avoid duplicates
+    UNIQUE (plc_name, full_resource_name, variable_name_id) -- Unique key to avoid duplicates
 );
 
 -- ==========================
@@ -57,3 +57,6 @@ VALUES
     ('Sidgal', 'Sidgal_3', 'S3K', 3, 'S3K3', NULL, NULL, NULL, NULL, NULL, NULL),
     ('Sidgal', 'Sidgal_3', 'S3S', 4, 'S3S4', NULL, NULL, NULL, NULL, NULL, NULL);
 
+     SELECT *
+     FROM unified_data
+     WHERE production_line_name = 'Sidgal_1';
