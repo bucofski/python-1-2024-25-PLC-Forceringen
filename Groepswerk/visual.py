@@ -20,8 +20,11 @@ except FileNotFoundError:
     )
 
 host_options = {
-    host.get('hostname', host.get('ip_address')): host.get('hostname', host.get('ip_address'))
-    for host in config.get('sftp_hosts', [])
+    "all": "All",  # Add this line
+    **{
+        host.get('hostname', host.get('ip_address')): host.get('hostname', host.get('ip_address'))
+        for host in config.get('sftp_hosts', [])
+    }
 }
 
 COLOR = "#FF3801"
@@ -140,7 +143,15 @@ def run_head_and_capture_output(config_output, selected_host_value):
     old_stderr = sys.stderr
     sys.stdout = sys.stderr = buffer
     try:
-        head.run_main_with_host(config_output, selected_host_value)
+        if selected_host_value == "all":
+            # For 'all', call it for every host in the yaml
+            for host in config_output.get('sftp_hosts', []):
+                host_name = host.get('hostname', host.get('ip_address'))
+                print(f"=== {host_name} ===")
+                head.run_main_with_host(config_output, host_name)
+                print()
+        else:
+            head.run_main_with_host(config_output, selected_host_value)
     except Exception as e:
         print(f"Error: {e}")
     finally:

@@ -14,89 +14,43 @@ def select_sftp_host(config):
         return None
 
     print("Available SFTP hosts:")
-    for host in sftp_hosts:
+    for i, host in enumerate(sftp_hosts, start=1):
         disp_name = host.get('hostname', host.get('ip_address'))
-        print(f"- {disp_name} ({host.get('ip_address', 'no IP')})")
+        print(f"{i}. {disp_name} ({host.get('ip_address', 'no IP')})")
+    print("all. Download from all hosts")
 
     hostnames = [host.get('hostname') for host in sftp_hosts if 'hostname' in host]
     while True:
-        selection = input(f"Type the hostname to connect: ").strip()
+        selection = input(f"Type the hostname or 'all' to download from every host: ").strip()
+        if selection == "all":
+            return "all"
         if selection in hostnames:
             selected_host = next(host for host in sftp_hosts if host.get('hostname') == selection)
             return selected_host
         else:
-            print("Invalid hostname. Please try again.")
+            print("Invalid selection. Please try again.")
 
 
 def main():
     start = datetime.now()
-    # Step 1: Load YAML and select SFTP host
+    # Load YAML and select SFTP host(s)
     with open("plc.yaml", "r") as f:
         config = yaml.safe_load(f)
 
-    host_cfg = select_sftp_host(config)
-    if host_cfg is None:
+    host_selection = select_sftp_host(config)
+    if not host_selection:
         return
 
-    hostname = host_cfg.get('ip_address', host_cfg.get('hostname'))
-    port = host_cfg['port']
-    username = host_cfg['username']
-    password = host_cfg['password']
-    remote_files = host_cfg.get('remote_files', [])
-
-    # --- Get global local_base_dir ---
-    base_local_dir = config.get('local_base_dir', '')
-    host_name = host_cfg.get('hostname')
-    if base_local_dir and host_name:
-        local_base_dir = os.path.join(base_local_dir, host_name)
+    # If user chooses "all", iterate over all hosts:
+    if host_selection == "all":
+        for host_cfg in config.get("sftp_hosts", []):
+            run_main_with_host(config, host_cfg.get('hostname'))
     else:
-        print("Error: local_base_dir or hostname is missing in the configuration or selected host.")
-        return
-
-    # ... (rest of code unchanged)
-
-    # Step 2: Download files over SFTP
-    client = SFTPClient(hostname, port, username, password)
-    client.connect()
-    client.download_files(remote_files, local_base_dir)
-    client.close()
-
-    # Step 3: Process each downloaded file
-    # (Assume you want to process all .dat files in local_base_dir)
-    if not os.path.exists(local_base_dir):
-        print(f"Error: Local directory '{local_base_dir}' does not exist after download.")
-        return
-
-    for filename in os.listdir(local_base_dir):
-        if filename.endswith(".dat"):
-            # Extract the part between the underscore and the .dat extension
-            table_part = filename.split("_")[-1].replace(".dat", "")
-
-            # Now use this part for your query!
-            custom_query = f"SELECT *, SecondComment FROM {table_part} WHERE Name IN ({{placeholders}})"
-
-            local_file_path = os.path.join(local_base_dir, filename)
-            print(f"\n--- Processing {local_file_path} (table: {table_part}) ---")
-            file_reader = FileReader(local_file_path)
-            words_list = file_reader.read_and_parse_file()
-            processed_list = list(DataProcessor.convert_and_process_list(words_list))
-
-            db_path = host_cfg.get('db_path')
-            if not db_path:
-                print("Error: db_path not specified for selected host.")
-                return
-            with DatabaseSearcher(db_path) as searcher:
-                results = searcher.search(processed_list, query_template=custom_query)
-            # Step 5: Bit Conversion
-            bit_converter = BitConversion(results)
-            common_elements = bit_converter.convert_variable_list()
-
-            # Step 6: Print results2
-            for sublist in common_elements:
-                print(sublist)
+        host_cfg = host_selection
+        run_main_with_host(config, host_cfg.get('hostname'))
 
     end = datetime.now()
-    print(f"\nTime taken: {(end - start).total_seconds()} seconds")
+    print(f"\nTotal time taken: {(end - start).total_seconds()} seconds")
 
 
 def run_main_with_host(config, selected_host_name):
