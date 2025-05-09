@@ -25,7 +25,10 @@ host_options = {
 }
 
 app_ui = ui.page_fluid(
-    ui.h2("PLC Forceringen"),
+    ui.tags.div(
+        ui.tags.h1("PLC Forceringen"),
+        style="background-color: #FF3801; padding: 10px; text-align: center;"
+    ),
     ui.br(),
     ui.input_select(
         "host_select",
