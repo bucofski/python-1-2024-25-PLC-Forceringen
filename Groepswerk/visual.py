@@ -57,6 +57,14 @@ app_ui = ui.tags.div(
         }
         """
     ),
+    ui.tags.style("""
+    #host_select-label, select#host_select {
+        font-size: 1.25rem;
+        padding: 10px;
+        height: 48px;
+        width: 90%;
+    }
+"""),
     # Top bar (centered)
     ui.tags.div(
         ui.tags.h1(
@@ -80,21 +88,22 @@ app_ui = ui.tags.div(
             z-index: 100;
         """
     ),
-    # Page layout: sidebar + main area
+    # Page layout: sidebar plus main area
     ui.tags.div(
         ui.tags.div(
             # Selection box with extra space
             ui.tags.div(
                 ui.input_select(
                     "host_select",
-                    ui.tags.div("Select a PLC Host:", style="margin-bottom: 18px;"),
+                    "Select a PLC Host:",
                     choices=host_options,
                 ),
                 style="margin-bottom: 32px;"
             ),
             ui.tags.div(
                 ui.input_action_button(
-                    "start_btn", "Start", class_="button button1"
+                    "start_btn", "Refresh", class_="button button1",
+                    style="width:90%; margin-bottom:8px;"
                 ),
             ),
             # View selector buttons
@@ -125,13 +134,13 @@ app_ui = ui.tags.div(
 )
 
 
-def run_head_and_capture_output(config, selected_host_value):
+def run_head_and_capture_output(config_output, selected_host_value):
     buffer = io.StringIO()
     old_stdout = sys.stdout
     old_stderr = sys.stderr
     sys.stdout = sys.stderr = buffer
     try:
-        head.run_main_with_host(config, selected_host_value)
+        head.run_main_with_host(config_output, selected_host_value)
     except Exception as e:
         print(f"Error: {e}")
     finally:
@@ -140,41 +149,42 @@ def run_head_and_capture_output(config, selected_host_value):
     return buffer.getvalue()
 
 
-def server(input, output, session):
+def server(inputs, outputs, session):
     # Reactive value for output text
+    assert session
     terminal_text = reactive.Value("")
     selected_view = reactive.Value("output")  # "output" or "database"
 
     # View-switching logic
     @reactive.effect
-    @reactive.event(input.view_output)
+    @reactive.event(inputs.view_output)
     def _():
         selected_view.set("output")
 
     @reactive.effect
-    @reactive.event(input.view_database)
+    @reactive.event(inputs.view_database)
     def _():
         selected_view.set("database")
 
-    @output()
+    @outputs()
     @render.text
     def selected_host():
-        return f"Selected Host: {input.host_select()}"
+        return f"Selected Host: {inputs.host_select()}"
 
-    @output()
+    @outputs()
     @render.text
     def terminal_output():
         return terminal_text()
 
     @reactive.effect
-    @reactive.event(input.start_btn)
+    @reactive.event(inputs.start_btn)
     def on_start():
-        selected_host_value = input.host_select()
+        selected_host_value = inputs.host_select()
         captured_output = run_head_and_capture_output(config, selected_host_value)
         terminal_text.set(captured_output or "[No output produced]")
 
     # Main panel UI switching
-    @output()
+    @outputs()
     @render.ui
     def main_panel():
         if selected_view() == "output":
@@ -189,6 +199,7 @@ def server(input, output, session):
                 ui.tags.p("Database content goes here...")
                 # Add any UI elements for your Database view here
             )
+        return None
 
 
 app = App(app_ui, server)
