@@ -47,6 +47,10 @@ app_ui = ui.tags.div(
           color: black;
           border: 2px solid #04AA6D;
         }
+        .button1.selected {
+          background-color: #04AA6D;
+          color: white;
+        }
         .button1:hover {
           background-color: #04AA6D;
           color: white;
@@ -88,13 +92,21 @@ app_ui = ui.tags.div(
                 ),
                 style="margin-bottom: 32px;"
             ),
-            # Replace Start button with styled HTML button classes
             ui.tags.div(
                 ui.input_action_button(
-                    "start_btn", "Start",
-                    class_="button button1"  # <-- Custom CSS classes
+                    "start_btn", "Start", class_="button button1"
                 ),
             ),
+            # View selector buttons
+            ui.tags.div(
+                ui.input_action_button("view_output", "Output", class_="button button1",
+                                       style="width:90%; margin-bottom:8px;"),
+                ui.input_action_button("view_database", "Database", class_="button button1",
+                                       style="width:90%; margin-bottom:24px;"),
+                style="margin-bottom: 16px;"
+            ),
+            # Start button
+
             style=(
                 f"background: {COLOR};"
                 "padding: 20px; color: white; min-height: 100vh; "
@@ -102,10 +114,9 @@ app_ui = ui.tags.div(
                 "text-align: center;"
             )
         ),
+        # Main panel: dynamically changes based on selected view
         ui.tags.div(
-            ui.output_text("selected_host"),
-            ui.tags.h2("Output"),
-            ui.output_text_verbatim("terminal_output", placeholder=True),
+            ui.output_ui("main_panel"),
             style="margin-left: 240px; padding: 90px 30px 30px 30px;"
         ),
         style="display: flex; flex-direction: row;"
@@ -115,7 +126,6 @@ app_ui = ui.tags.div(
 
 
 def run_head_and_capture_output(config, selected_host_value):
-    # Capture both stdout and stderr
     buffer = io.StringIO()
     old_stdout = sys.stdout
     old_stderr = sys.stderr
@@ -125,7 +135,6 @@ def run_head_and_capture_output(config, selected_host_value):
     except Exception as e:
         print(f"Error: {e}")
     finally:
-        # Restore sys.stdout and sys.stderr
         sys.stdout = old_stdout
         sys.stderr = old_stderr
     return buffer.getvalue()
@@ -134,6 +143,18 @@ def run_head_and_capture_output(config, selected_host_value):
 def server(input, output, session):
     # Reactive value for output text
     terminal_text = reactive.Value("")
+    selected_view = reactive.Value("output")  # "output" or "database"
+
+    # View-switching logic
+    @reactive.effect
+    @reactive.event(input.view_output)
+    def _():
+        selected_view.set("output")
+
+    @reactive.effect
+    @reactive.event(input.view_database)
+    def _():
+        selected_view.set("database")
 
     @output()
     @render.text
@@ -151,6 +172,23 @@ def server(input, output, session):
         selected_host_value = input.host_select()
         captured_output = run_head_and_capture_output(config, selected_host_value)
         terminal_text.set(captured_output or "[No output produced]")
+
+    # Main panel UI switching
+    @output()
+    @render.ui
+    def main_panel():
+        if selected_view() == "output":
+            return ui.tags.div(
+                ui.output_text("selected_host"),
+                ui.tags.h2("Output"),
+                ui.output_text_verbatim("terminal_output", placeholder=True)
+            )
+        elif selected_view() == "database":
+            return ui.tags.div(
+                ui.tags.h2("Database"),
+                ui.tags.p("Database content goes here...")
+                # Add any UI elements for your Database view here
+            )
 
 
 app = App(app_ui, server)
