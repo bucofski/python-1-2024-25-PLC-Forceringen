@@ -2,6 +2,7 @@ from datetime import datetime
 import pyodbc
 from class_making_querry import FileReader, DataProcessor
 
+
 class DatabaseSearcher:
     def __init__(self, db_path):
         """Initialize the database connection string and connection to None."""
@@ -44,7 +45,7 @@ class DatabaseSearcher:
         cursor = self.conn.cursor()
 
         for i in range(0, len(search_items), batch_size):
-            batch = search_items[i:i+batch_size]
+            batch = search_items[i:i + batch_size]
             placeholders = ", ".join("?" for _ in batch)
             query = query_template.format(placeholders=placeholders)
             try:
@@ -66,7 +67,7 @@ class DatabaseSearcher:
                         'KKS': mnemo_s,
                         'Comment': comment,
                         'Second_comment': second_comment,
-                        'Type': type_field,
+                        'VAR_Type': type_field,
                         'Value': associated_item
                     })
             except pyodbc.Error as e:
@@ -74,6 +75,7 @@ class DatabaseSearcher:
                 continue  # Try remaining batches
 
         return processed_results
+
 
 if __name__ == "__main__":
     start = datetime.now()
@@ -85,7 +87,7 @@ if __name__ == "__main__":
         words_list = file_reader.read_and_parse_file()
         processed_list = list(DataProcessor.convert_and_process_list(words_list))
         custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
-        #custom_query = "SELECT Name, MnemoK, [MnemoK'], MnemoS, Comment, SecondComment, Type FROM NIET WHERE Name IN ({placeholders})"
+        # custom_query = "SELECT Name, MnemoK, [MnemoK'], MnemoS, Comment, SecondComment, Type FROM NIET WHERE Name IN ({placeholders})"
         results = searcher.search(processed_list, query_template=custom_query)
 
     end = datetime.now()
