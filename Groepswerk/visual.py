@@ -24,24 +24,93 @@ host_options = {
     for host in config.get('sftp_hosts', [])
 }
 
-app_ui = ui.page_fluid(
+COLOR = "#FF3801"
+
+app_ui = ui.tags.div(
+    # Add the CSS for the button appearance
+    ui.tags.style(
+        """
+        .button {
+          border: none;
+          color: white;
+          padding: 16px 32px;
+          text-align: center;
+          text-decoration: none;
+          display: inline-block;
+          font-size: 16px;
+          margin: 4px 2px;
+          transition-duration: 0.4s;
+          cursor: pointer;
+        }
+        .button1 {
+          background-color: white;
+          color: black;
+          border: 2px solid #04AA6D;
+        }
+        .button1:hover {
+          background-color: #04AA6D;
+          color: white;
+        }
+        """
+    ),
+    # Top bar (centered)
     ui.tags.div(
-        ui.tags.h1("PLC Forceringen"),
-        style="background-color: #FF3801; padding: 10px; text-align: center;"
+        ui.tags.h1(
+            "PLC Forceringen",
+            style="margin: 0; color: white; font-size: 2rem; text-align: center;"
+        ),
+        style=f"""
+            width: 100vw;
+            background: {COLOR};
+            color: white;
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 70px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        """
     ),
-    ui.br(),
-    ui.input_select(
-        "host_select",
-        "Select a PLC Host:",
-        choices=host_options
+    # Page layout: sidebar + main area
+    ui.tags.div(
+        ui.tags.div(
+            # Selection box with extra space
+            ui.tags.div(
+                ui.input_select(
+                    "host_select",
+                    ui.tags.div("Select a PLC Host:", style="margin-bottom: 18px;"),
+                    choices=host_options,
+                ),
+                style="margin-bottom: 32px;"
+            ),
+            # Replace Start button with styled HTML button classes
+            ui.tags.div(
+                ui.input_action_button(
+                    "start_btn", "Start",
+                    class_="button button1"  # <-- Custom CSS classes
+                ),
+            ),
+            style=(
+                f"background: {COLOR};"
+                "padding: 20px; color: white; min-height: 100vh; "
+                "width: 220px; box-sizing: border-box; position: fixed; top: 70px; left: 0;"
+                "text-align: center;"
+            )
+        ),
+        ui.tags.div(
+            ui.output_text("selected_host"),
+            ui.tags.h2("Output"),
+            ui.output_text_verbatim("terminal_output", placeholder=True),
+            style="margin-left: 240px; padding: 90px 30px 30px 30px;"
+        ),
+        style="display: flex; flex-direction: row;"
     ),
-    ui.output_text("selected_host"),
-    ui.br(),
-    ui.input_action_button("start_btn", "Start"),
-    ui.br(),
-    ui.br(),
-    ui.h2("Output"),
-    ui.output_text_verbatim("terminal_output", placeholder=True)
+    style="box-sizing: border-box; margin: 0; padding: 0;"
 )
 
 
