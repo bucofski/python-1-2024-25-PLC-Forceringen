@@ -4,7 +4,7 @@ import yaml
 import os
 from shiny import App, ui, render
 from shiny import reactive
-import head
+import python_1_2024_25_PLC_Forceringen.Groepswerk.head
 
 # Read host options from YAML
 script_dir = os.path.dirname(os.path.abspath(__file__))
