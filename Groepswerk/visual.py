@@ -5,6 +5,7 @@ import os
 from shiny import App, ui, render
 from shiny import reactive
 import head
+from shiny import ui
 
 # Read host options from YAML
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -30,6 +31,53 @@ host_options = {
 COLOR = "#FF3801"
 
 app_ui = ui.tags.div(
+    # CSS for sidebar and transitions - updated with font
+    ui.tags.style(
+        f"""
+        @font-face {{
+            font-family: 'VAGRoundedLight';
+            src: local('VAG Rounded Light'), local('VAGRoundedLight');
+            font-weight: 300;
+            font-style: normal;
+        }}
+        body, .sidebar, .main-panel, .sidebar-toggle, .button, .button1, h1, h2, select, label, p {{
+            font-family: 'VAGRoundedLight', 'VAG Rounded Light', 'Arial Rounded MT Bold', Arial, sans-serif !important;
+        }}
+        .sidebar {{
+            background: {COLOR};
+            padding: 20px; color: white;
+            min-height: 100vh;
+            width: 220px; box-sizing: border-box;
+            position: fixed; top: 70px; left: 0;
+            transition: transform 0.2s cubic-bezier(.42,0,.58,1);
+            text-align: center;
+            z-index: 110;
+        }}
+        .sidebar.collapsed {{
+            transform: translateX(-220px);
+        }}
+        .main-panel {{
+            margin-left: 240px; 
+            padding: 90px 30px 30px 30px;
+            transition: margin-left 0.2s cubic-bezier(.42,0,.58,1);
+        }}
+        .sidebar.collapsed + .main-panel {{
+            margin-left: 20px;
+        }}
+        .sidebar-toggle {{
+            position: fixed;
+            left: 10px; top: 20px; z-index: 120;
+            background-color: #90D5FF;
+            color: white; border: none;
+            border-radius: 50%;
+            width: 36px; height: 36px;
+            cursor: pointer; font-size: 18px;
+            outline: none;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+        }}
+        """
+    ),
     # Add the CSS for the button appearance
     ui.tags.style(
         """
@@ -44,30 +92,34 @@ app_ui = ui.tags.div(
           margin: 4px 2px;
           transition-duration: 0.4s;
           cursor: pointer;
+          font-family: 'VAGRoundedLight';
         }
         .button1 {
           background-color: white;
           color: black;
-          border: 2px solid #04AA6D;
+          border: 2px solid #90D5FF;
+          font-family: 'VAGRoundedLight';
         }
         .button1.selected {
-          background-color: #04AA6D;
+          background-color: #90D5FF;
           color: white;
         }
         .button1:hover {
-          background-color: #04AA6D;
+          background-color: #90D5FF;
           color: white;
         }
         """
     ),
+    # ...OTHER STYLES...
     ui.tags.style("""
-    #host_select-label, select#host_select {
-        font-size: 1.25rem;
-        padding: 10px;
-        height: 48px;
-        width: 90%;
-    }
-"""),
+        #host_select-label, select#host_select {
+            font-size: 1.25rem;
+            padding: 10px;
+            height: 48px;
+            width: 90%;
+            font-family: 'VAGRoundedLight';
+        }
+    """),
     # Top bar (centered)
     ui.tags.div(
         ui.tags.h1(
@@ -78,27 +130,24 @@ app_ui = ui.tags.div(
             width: 100vw;
             background: {COLOR};
             color: white;
-            padding: 0;
-            margin: 0;
+            padding: 0; margin: 0;
             box-sizing: border-box;
-            position: fixed;
-            top: 0;
-            left: 0;
+            position: fixed; top: 0; left: 0;
             height: 70px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+            display: flex; justify-content: center; align-items: center;
             z-index: 100;
         """
     ),
+    # Sidebar toggle button
+    ui.tags.button("☰", id="sidebarToggle", class_="sidebar-toggle"),
     # Page layout: sidebar plus main area
     ui.tags.div(
+        # Sidebar
         ui.tags.div(
-            # Selection box with extra space
             ui.tags.div(
                 ui.input_select(
                     "host_select",
-                    "Select a PLC Host:",
+                    "Select PLC:",
                     choices=host_options,
                 ),
                 style="margin-bottom: 32px;"
@@ -117,22 +166,29 @@ app_ui = ui.tags.div(
                                        style="width:90%; margin-bottom:24px;"),
                 style="margin-bottom: 16px;"
             ),
-            # Start button
-
-            style=(
-                f"background: {COLOR};"
-                "padding: 20px; color: white; min-height: 100vh; "
-                "width: 220px; box-sizing: border-box; position: fixed; top: 70px; left: 0;"
-                "text-align: center;"
-            )
+            # --- Additional sidebar content goes here ---
+            class_="sidebar",
+            id="sidebar"
         ),
-        # Main panel: dynamically changes based on selected view
+        # Main panel
         ui.tags.div(
             ui.output_ui("main_panel"),
-            style="margin-left: 240px; padding: 90px 30px 30px 30px;"
+            class_="main-panel",
+            id="main_panel_wrap"
         ),
         style="display: flex; flex-direction: row;"
     ),
+    # Bit of JS to handle sidebar show/hide
+    ui.tags.script("""
+    document.addEventListener("DOMContentLoaded", function() {
+        const sidebar = document.getElementById("sidebar");
+        const toggleBtn = document.getElementById("sidebarToggle");
+        const mainPanelWrap = document.getElementById("main_panel_wrap");
+        toggleBtn.addEventListener("click", function() {
+            sidebar.classList.toggle("collapsed");
+        });
+    });
+    """),
     style="box-sizing: border-box; margin: 0; padding: 0;"
 )
 
