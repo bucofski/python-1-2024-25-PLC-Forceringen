@@ -1,5 +1,5 @@
 local_base_dir: "C:/python-1-2024-25-PLC-Forceringen/"
-
+department_name: "BT2"
 # this is so because if there is a difference in PLC connection
 # then it can be changed on PLC level
 username: &username "commisioning"

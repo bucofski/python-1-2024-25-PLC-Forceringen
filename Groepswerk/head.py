@@ -85,9 +85,20 @@ def run_main_with_host(config, selected_host_name):
         print(f"Error: Local directory '{local_base_dir}' does not exist after download.")
         return
 
+    # Get department_name from config only once:
+    department_name = config.get("department_name")
+
     for filename in os.listdir(local_base_dir):
         if filename.endswith(".dat"):
-            table_part = filename.split("_")[-1].replace(".dat", "")
+            # Extract PLC and resource from filename (e.g. "BTEST_NIET.dat")
+            try:
+                plc, resource = filename.replace('.dat', '').split('_', 1)
+            except ValueError:
+                print(f"Filename '{filename}' does not contain expected '_' separator. Skipping.")
+                continue
+
+            table_part = resource  # The table is usually the resource part
+
             custom_query = f"SELECT *, SecondComment FROM {table_part} WHERE Name IN ({{placeholders}})"
             local_file_path = os.path.join(local_base_dir, filename)
             print(f"\n--- Processing {local_file_path} (table: {table_part}) ---")
@@ -100,7 +111,13 @@ def run_main_with_host(config, selected_host_name):
                 print("Error: db_path not specified for selected host.")
                 return
             with DatabaseSearcher(db_path) as searcher:
-                results = searcher.search(processed_list, query_template=custom_query)
+                results = searcher.search(
+                    processed_list,
+                    query_template=custom_query,
+                    department_name=department_name,
+                    plc=plc,
+                    resource=resource
+                )
             bit_converter = BitConversion(results)
             common_elements = bit_converter.convert_variable_list()
             for sublist in common_elements:
