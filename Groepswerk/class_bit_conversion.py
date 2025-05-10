@@ -8,7 +8,6 @@ class BitConversion:
     def __init__(self, data_list):
         """Initialize with a list of dictionaries from the database search."""
         self.data_list = data_list
-        print(data_list)
 
     def convert_variable_list(self):
         """Convert and process values based on type. Modifies self.data_list in-place."""
@@ -41,7 +40,7 @@ if __name__ == "__main__":
     start = datetime.now()
 
     # Read and process the input file only once
-    words_list = FileReader("for.dat").read_and_parse_file()
+    words_list = FileReader("BTEST_NIET.dat").read_and_parse_file()
     processed_words = list(DataProcessor.convert_and_process_list(words_list))
 
     # Initialize database searcher and perform search within context manager
