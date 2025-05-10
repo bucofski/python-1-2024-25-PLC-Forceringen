@@ -29,6 +29,9 @@ class BitConversion:
                     int_value = int(hex_combined, 16)
                     double_precision_float = struct.unpack('>d', struct.pack('>Q', int_value))[0]
                     sublist["Value"] = str(double_precision_float)
+                elif type_ == 'BOOL':
+                    int_value = int(value[0], 16)
+                    sublist["Value"] = bool(int_value)
 
             except (ValueError, IndexError, struct.error):
                 sublist["Value"] = f"Invalid {type_}"
