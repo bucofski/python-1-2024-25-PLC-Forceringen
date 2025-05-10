@@ -3,16 +3,18 @@ from datetime import datetime
 from class_making_querry import DataProcessor, FileReader
 from class_database import DatabaseSearcher
 
+
 class BitConversion:
     def __init__(self, data_list):
         """Initialize with a list of dictionaries from the database search."""
         self.data_list = data_list
+        print(data_list)
 
     def convert_variable_list(self):
         """Convert and process values based on type. Modifies self.data_list in-place."""
         for sublist in self.data_list:
             value = sublist.get("Value", [])
-            type_ = sublist.get("Type")
+            type_ = sublist.get("VAR_Type")
 
             try:
                 if type_ == 'REAL' and value:
@@ -33,6 +35,7 @@ class BitConversion:
                 sublist["Value"] = f"Invalid {type_}"
 
         return self.data_list
+
 
 if __name__ == "__main__":
     start = datetime.now()

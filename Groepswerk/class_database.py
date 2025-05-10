@@ -1,5 +1,6 @@
 from datetime import datetime
 import pyodbc
+import yaml
 from class_making_querry import FileReader, DataProcessor
 
 
@@ -23,12 +24,15 @@ class DatabaseSearcher:
         if self.conn:
             self.conn.close()
 
-    def search(self, item_list, query_template):
+    def search(self, item_list, query_template, department_name=None, plc=None, resource=None):
         """
         Searches the database with a given query template.
 
         :param item_list: List of tuples [(search_name, value, extra_value), ...]
         :param query_template: SQL query template with {placeholders} for values.
+        :param department_name: String from YAML
+        :param plc: PLC name (e.g. 'BTEST')
+        :param resource: Resource (e.g. 'NIET')
         :return: List of dictionaries with search results.
         """
         if not item_list:
@@ -39,7 +43,7 @@ class DatabaseSearcher:
         search_items = [item[0] for item in item_list]
         associated_items = {item[0]: [item[1], item[2]] for item in item_list}
 
-        # Batched execution if item_list is very large (optional - Access might not like >1000 in IN)
+        # Batched execution if item_list is very large (optional, Access might not like >1000 in IN)
         batch_size = 800  # safe upper limit for Access SQL
         processed_results = []
         cursor = self.conn.cursor()
@@ -68,7 +72,10 @@ class DatabaseSearcher:
                         'Comment': comment,
                         'Second_comment': second_comment,
                         'VAR_Type': type_field,
-                        'Value': associated_item
+                        'Value': associated_item,
+                        "department_name": department_name,
+                        "PLC": plc,
+                        "resource": resource
                     })
             except pyodbc.Error as e:
                 print(f"Database query error: {e}")
@@ -79,15 +86,20 @@ class DatabaseSearcher:
 
 if __name__ == "__main__":
     start = datetime.now()
-    db_path = r"C:/Users/SIDTOVY/OneDrive - ArcelorMittal/Desktop/controller_l.mdb"
+    # Load department_name from plc.yaml
+    with open("plc.yaml", "r") as f:
+        config = yaml.safe_load(f)
+    department_name = config.get("department_name", "UNKNOWN")
+
+    db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
+    # db_path = r"C:/Users/SIDTOVY/OneDrive - ArcelorMittal/Desktop/controller_l.mdb"
 
     # process and search within a single context (connection)
     with DatabaseSearcher(db_path) as searcher:
-        file_reader = FileReader("for.dat")
+        file_reader = FileReader("BTEST_NIET.dat")
         words_list = file_reader.read_and_parse_file()
         processed_list = list(DataProcessor.convert_and_process_list(words_list))
         custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
-        # custom_query = "SELECT Name, MnemoK, [MnemoK'], MnemoS, Comment, SecondComment, Type FROM NIET WHERE Name IN ({placeholders})"
         results = searcher.search(processed_list, query_template=custom_query)
 
     end = datetime.now()
