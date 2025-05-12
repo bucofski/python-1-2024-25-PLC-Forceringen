@@ -75,9 +75,9 @@ app_ui = ui.tags.div(
             outline: none;
             display: flex; align-items: center; justify-content: center;
             box-shadow:
-            0 8px 32px 4px rgba(0,0,0,0.40),
-            0 2px 8px 1px rgba(0,0,0,0.24),
-            0 0 0 6px rgba(255,56,1,0.12);
+            0 4px 12px 2px rgba(0,0,0,0.18),
+            0 1px 4px 0 rgba(0,0,0,0.10),
+            0 0 0 3px rgba(255,56,1,0.10);
             transition: box-shadow 0.3s;
 
         }}
