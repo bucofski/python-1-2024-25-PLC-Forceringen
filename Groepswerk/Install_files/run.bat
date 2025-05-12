@@ -9,14 +9,14 @@
 ::::::::::::::::::::::::::::::
  
 :: Load all the environment variables from the .env file
-for /f "usebackq tokens=1,2 delims== eol=#" %%A in ("%ENV_FILE%") do (
-    set "%%A=%%B"
-)
+::for /f "usebackq tokens=1,2 delims== eol=#" %%A in ("%ENV_FILE%") do (
+::    set "%%A=%%B"
+::)
  
 :: Create the logging directory if it does not exist.  You get an error from Python if it does not exist.
-IF NOT EXIST %SHINYBOARD_CONFIG% (
-    mkdir %SHINYBOARD_CONFIG%
-)
+::IF NOT EXIST %SHINYBOARD_CONFIG% (
+::    mkdir %SHINYBOARD_CONFIG%
+::)
  
 :: Check if the port is in use
 setlocal enabledelayedexpansion
