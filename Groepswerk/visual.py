@@ -67,14 +67,19 @@ app_ui = ui.tags.div(
         .sidebar-toggle {{
             position: fixed;
             left: 10px; top: 20px; z-index: 120;
-            background-color: #90D5FF;
+            background-color: {COLOR};
             color: white; border: none;
             border-radius: 50%;
             width: 36px; height: 36px;
             cursor: pointer; font-size: 18px;
             outline: none;
             display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+            box-shadow:
+            0 8px 32px 4px rgba(0,0,0,0.40),
+            0 2px 8px 1px rgba(0,0,0,0.24),
+            0 0 0 6px rgba(255,56,1,0.12);
+            transition: box-shadow 0.3s;
+
         }}
         """
     ),
@@ -82,17 +87,22 @@ app_ui = ui.tags.div(
     ui.tags.style(
         """
         .button {
-          border: none;
-          color: white;
-          padding: 16px 32px;
-          text-align: center;
-          text-decoration: none;
-          display: inline-block;
-          font-size: 16px;
-          margin: 4px 2px;
-          transition-duration: 0.4s;
-          cursor: pointer;
-          font-family: 'VAGRoundedLight';
+              border: none;
+              color: white;
+              padding: 16px 32px;
+              text-align: center;
+              text-decoration: none;
+              display: inline-block;
+              font-size: 16px;
+              margin: 4px 2px;
+              transition-duration: 0.4s;
+              cursor: pointer;
+              font-family: 'VAGRoundedLight';
+              box-shadow:             
+              0 8px 32px 4px rgba(0,0,0,0.40),
+              0 2px 8px 1px rgba(0,0,0,0.24),
+              0 0 0 6px rgba(255,56,1,0.12);
+              transition: box-shadow 0.3s;
         }
         .button1 {
           background-color: white;
@@ -117,9 +127,20 @@ app_ui = ui.tags.div(
             padding: 10px;
             height: 48px;
             width: 90%;
+            
             font-family: 'VAGRoundedLight';
         }
     """),
+    ui.tags.style(
+        f"""
+        h1 {{
+            text-shadow:
+                0 4px 24px rgba(0,0,0,0.45),
+                0 1.5px 0 rgba(0,0,0,0.28),
+                0 0 12px {COLOR}55;
+        }}
+        """
+    ),
     # Top bar (centered)
     ui.tags.div(
         ui.tags.h1(
