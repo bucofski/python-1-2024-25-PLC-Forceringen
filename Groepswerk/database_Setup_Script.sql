@@ -1,11 +1,13 @@
 -- ==========================
--- CREATE UNIFIED TABLE
+-- CREATE FORCING TABLE
 -- ==========================
-CREATE TABLE unified_data (
+DROP TABLE IF EXISTS forcing_data;
+
+CREATE TABLE forcing_data (
     department_name VARCHAR(255) NOT NULL,    -- E.g., Sidgal
     plc_name VARCHAR(255) NOT NULL,           -- E.g., S1E
-    resource_number VARCHAR(50) NOT NULL,     -- Resource number (e.g., numeric or text - NIET, KMOR, WT1)
-    full_resource_name VARCHAR(255) AS (plc_name || resource_number) STORED, -- Auto-computed column combining plc_name and resource_number
+    resource_number VARCHAR(50) NOT NULL,     -- Resource number (e.g., NIET, KMOR, WT1)
+    full_resource_name VARCHAR(255) GENERATED ALWAYS AS (plc_name || resource_number) STORED, -- Auto-computed column combining plc_name and resource_number
     variable_name_id VARCHAR(255),            -- Unique identifier for the variable (e.g., G00001)
     KKS VARCHAR(255),                         -- KKS identifier for the variable (e.g., House.Output.KKS1)
     comment TEXT,                             -- Comment for the variable
@@ -16,9 +18,10 @@ CREATE TABLE unified_data (
 );
 
 -- ==========================
--- INSERT ALL DATA INTO UNIFIED TABLE
+-- INSERT ALL DATA INTO FORCING TABLE
 -- ==========================
-INSERT INTO unified_data (
+
+INSERT INTO forcing_data (
     department_name,
     plc_name,
     resource_number,
@@ -53,9 +56,58 @@ VALUES
     ('BT2', 'BTEST', 'KMOR', 'BT2002', 'BT2.Output.KKS2', 'Example for KMOR', 'Second Comment 2', 'BOOL', 1),
     ('BT2', 'BTEST', 'WT1', 'BT2003', 'BT2.Output.KKS3', 'Example for WT1', 'Second Comment 3', 'DOUBLE', 101.2);
 
+
 -- ==========================
--- SELECT QUERY (ADJUSTED)
+-- SELECT QUERY
 -- ==========================
-SELECT *
-FROM unified_data
+
+-- QUERY BT2
+
+SELECT plc_name
+	  ,resource_number
+	  ,variable_name_id
+	  ,KKS
+	  ,comment
+	  ,second_comment
+	  ,variable_value
+FROM
+	   forcing_data
 WHERE department_name = 'BT2';
+
+-- QUERY Sidgal
+
+SELECT full_resource_name
+	  ,variable_name_id
+	  ,KKS
+	  ,comment
+	  ,second_comment
+	  ,variable_value
+FROM
+	   forcing_data
+WHERE department_name = 'Sidgal';
+
+-- ==========================
+-- CREATION VIEWS
+-- ==========================
+
+CREATE VIEW bt2_view AS
+SELECT plc_name,
+       resource_number,
+       variable_name_id,
+       KKS,
+       comment,
+       second_comment,
+       variable_value
+FROM forcing_data
+WHERE department_name = 'BT2';
+
+
+CREATE VIEW sidgal_view AS
+SELECT full_resource_name,
+       variable_name_id,
+       KKS,
+       comment,
+       second_comment,
+       variable_value
+FROM forcing_data
+WHERE department_name = 'Sidgal';
