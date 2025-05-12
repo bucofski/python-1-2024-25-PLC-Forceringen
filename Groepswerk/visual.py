@@ -28,7 +28,7 @@ host_options = {
     }
 }
 
-COLOR = "#FF3801"
+COLOR = "#FB4400"
 
 app_ui = ui.tags.div(
     # CSS for sidebar and transitions - updated with font
