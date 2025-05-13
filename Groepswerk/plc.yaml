@@ -12,10 +12,10 @@ sftp_hosts:
     port: *port
     username: *username
     password: *password
-    remote_files:
-      - "/AFV/Insp/for.dat"
-      - "/AFV/House/for.dat"
-      - "/AFV/UitSeq/for.dat"
+    resources:
+      - "Insp"
+      - "House"
+      - "UitSeq"
     db_path: "//SVKWA337/Pilot_Project/Rxi/REG/controller.ctrl"
   - hostname: "REG"
     ip_address: "10.243.13.89"
@@ -23,7 +23,7 @@ sftp_hosts:
     username: *username
     password: *password
     remote_files:
-      - "/REG/House/for.dat"
+      - "House"
     db_path: "//SVKWA337/Pilot_Project/Rxi/AFV/controller.ctrl"
 
   - hostname: "BTEST"
@@ -31,28 +31,10 @@ sftp_hosts:
     port: "22"
     username: "pi"
     password: "raspberry"
-    remote_files:
-      - "/home/pi/BTEST/NIET/for.dat"
-      - "/home/pi/BTEST/KMOR/for.dat"
-      - "/home/pi/BTEST/WT1/for.dat"
+    resources:
+      - "NIET"
+      - "KMOR"
+      - "WT1"
+      - "CHIEL"
     db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
 
-#sftp_hosts:
-#  - hostname: "AFV"
-#    ip_address: "10.243.13.85"
-#    port: *port
-#    username: *username
-#    password: *password
-#    resource:
-#      - "Insp"
-#      - "House"
-#      - "UitSeq"
-#    db_path: "//SVKWA337/Pilot_Project/Rxi/REG/controller.ctrl"
-#  - hostname: "REG"
-#    ip_address: "10.243.13.89"
-#    port: *port
-#    username: *username
-#    password: *password
-#    resource:
-#      - "House"
-#    db_path: "//SVKWA337/Pilot_Project/Rxi/AFV/controller.ctrl"

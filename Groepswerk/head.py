@@ -66,7 +66,10 @@ def run_main_with_host(config, selected_host_name):
     port = host_cfg['port']
     username = host_cfg['username']
     password = host_cfg['password']
-    remote_files = host_cfg.get('remote_files', [])
+
+    # UPDATED: get resources list and construct file paths dynamically
+    resources = host_cfg.get('resources', [])
+    remote_files = [f"{host_cfg['hostname']}/{resource}/for.dat" for resource in resources]
 
     base_local_dir = config.get('local_base_dir', '')
     host_name = host_cfg.get('hostname')
@@ -85,12 +88,10 @@ def run_main_with_host(config, selected_host_name):
         print(f"Error: Local directory '{local_base_dir}' does not exist after download.")
         return
 
-    # Get department_name from config only once:
     department_name = config.get("department_name")
 
     for filename in os.listdir(local_base_dir):
         if filename.endswith(".dat"):
-            # Extract PLC and resource from filename (e.g. "BTEST_NIET.dat")
             try:
                 plc, resource = filename.replace('.dat', '').split('_', 1)
             except ValueError:
