@@ -14,37 +14,63 @@ def select_sftp_host(config):
         return None
 
     print("Available SFTP hosts:")
-    for host in sftp_hosts:
+    for i, host in enumerate(sftp_hosts, start=1):
         disp_name = host.get('hostname', host.get('ip_address'))
-        print(f"- {disp_name} ({host.get('ip_address', 'no IP')})")
+        print(f"{i}. {disp_name} ({host.get('ip_address', 'no IP')})")
+    print("all. Download from all hosts")
 
     hostnames = [host.get('hostname') for host in sftp_hosts if 'hostname' in host]
     while True:
-        selection = input(f"Type the hostname to connect: ").strip()
+        selection = input(f"Type the hostname or 'all' to download from every host: ").strip()
+        if selection == "all":
+            return "all"
         if selection in hostnames:
             selected_host = next(host for host in sftp_hosts if host.get('hostname') == selection)
             return selected_host
         else:
-            print("Invalid hostname. Please try again.")
+            print("Invalid selection. Please try again.")
 
 
 def main():
     start = datetime.now()
-    # Step 1: Load YAML and select SFTP host
+    # Load YAML and select SFTP host(s)
     with open("plc.yaml", "r") as f:
         config = yaml.safe_load(f)
 
-    host_cfg = select_sftp_host(config)
-    if host_cfg is None:
+    host_selection = select_sftp_host(config)
+    if not host_selection:
+        return
+
+    # If user chooses "all", iterate over all hosts:
+    if host_selection == "all":
+        for host_cfg in config.get("sftp_hosts", []):
+            run_main_with_host(config, host_cfg.get('hostname'))
+    else:
+        host_cfg = host_selection
+        run_main_with_host(config, host_cfg.get('hostname'))
+
+    end = datetime.now()
+    print(f"\nTotal time taken: {(end - start).total_seconds()} seconds")
+
+
+def run_main_with_host(config, selected_host_name):
+    start = datetime.now()
+
+    sftp_hosts = config.get("sftp_hosts", [])
+    host_cfg = next((host for host in sftp_hosts if host.get("hostname") == selected_host_name), None)
+    if not host_cfg:
+        print(f"Host {selected_host_name} not found.")
         return
 
     hostname = host_cfg.get('ip_address', host_cfg.get('hostname'))
     port = host_cfg['port']
     username = host_cfg['username']
     password = host_cfg['password']
-    remote_files = host_cfg.get('remote_files', [])
 
-    # --- Get global local_base_dir ---
+    # UPDATED: get resources list and construct file paths dynamically
+    resources = host_cfg.get('resources', [])
+    remote_files = [f"{host_cfg['hostname']}/{resource}/for.dat" for resource in resources]
+
     base_local_dir = config.get('local_base_dir', '')
     host_name = host_cfg.get('hostname')
     if base_local_dir and host_name:
@@ -53,28 +79,28 @@ def main():
         print("Error: local_base_dir or hostname is missing in the configuration or selected host.")
         return
 
-    # ... (rest of code unchanged)
-
-    # Step 2: Download files over SFTP
     client = SFTPClient(hostname, port, username, password)
     client.connect()
     client.download_files(remote_files, local_base_dir)
     client.close()
 
-    # Step 3: Process each downloaded file
-    # (Assume you want to process all .dat files in local_base_dir)
     if not os.path.exists(local_base_dir):
         print(f"Error: Local directory '{local_base_dir}' does not exist after download.")
         return
 
+    department_name = config.get("department_name")
+
     for filename in os.listdir(local_base_dir):
         if filename.endswith(".dat"):
-            # Extract the part between the underscore and the .dat extension
-            table_part = filename.split("_")[-1].replace(".dat", "")
+            try:
+                plc, resource = filename.replace('.dat', '').split('_', 1)
+            except ValueError:
+                print(f"Filename '{filename}' does not contain expected '_' separator. Skipping.")
+                continue
 
-            # Now use this part for your query!
+            table_part = resource  # The table is usually the resource part
+
             custom_query = f"SELECT *, SecondComment FROM {table_part} WHERE Name IN ({{placeholders}})"
-
             local_file_path = os.path.join(local_base_dir, filename)
             print(f"\n--- Processing {local_file_path} (table: {table_part}) ---")
             file_reader = FileReader(local_file_path)
@@ -86,12 +112,15 @@ def main():
                 print("Error: db_path not specified for selected host.")
                 return
             with DatabaseSearcher(db_path) as searcher:
-                results = searcher.search(processed_list, query_template=custom_query)
-            # Step 5: Bit Conversion
+                results = searcher.search(
+                    processed_list,
+                    query_template=custom_query,
+                    department_name=department_name,
+                    plc=plc,
+                    resource=resource
+                )
             bit_converter = BitConversion(results)
             common_elements = bit_converter.convert_variable_list()
-
-            # Step 6: Print results2
             for sublist in common_elements:
                 print(sublist)
 

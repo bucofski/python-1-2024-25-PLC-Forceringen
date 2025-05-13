@@ -3,6 +3,7 @@ from datetime import datetime
 from class_making_querry import DataProcessor, FileReader
 from class_database import DatabaseSearcher
 
+
 class BitConversion:
     def __init__(self, data_list):
         """Initialize with a list of dictionaries from the database search."""
@@ -12,7 +13,7 @@ class BitConversion:
         """Convert and process values based on type. Modifies self.data_list in-place."""
         for sublist in self.data_list:
             value = sublist.get("Value", [])
-            type_ = sublist.get("Type")
+            type_ = sublist.get("VAR_Type")
 
             try:
                 if type_ == 'REAL' and value:
@@ -29,16 +30,21 @@ class BitConversion:
                     double_precision_float = struct.unpack('>d', struct.pack('>Q', int_value))[0]
                     sublist["Value"] = str(double_precision_float)
 
+                elif type_ == 'BOOL':
+                    int_value = int(value[0], 16)
+                    sublist["Value"] = bool(int_value)
+
             except (ValueError, IndexError, struct.error):
                 sublist["Value"] = f"Invalid {type_}"
 
         return self.data_list
 
+
 if __name__ == "__main__":
     start = datetime.now()
 
     # Read and process the input file only once
-    words_list = FileReader("for.dat").read_and_parse_file()
+    words_list = FileReader("BTEST_NIET.dat").read_and_parse_file()
     processed_words = list(DataProcessor.convert_and_process_list(words_list))
 
     # Initialize database searcher and perform search within context manager
