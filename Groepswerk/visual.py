@@ -5,7 +5,6 @@ import os
 from shiny import App, ui, render
 from shiny import reactive
 import head
-from shiny import ui
 
 # Read host options from YAML
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -57,7 +56,7 @@ app_ui = ui.tags.div(
             transform: translateX(-220px);
         }}
         .main-panel {{
-            margin-left: 240px; 
+            margin-left: 240px;
             padding: 90px 30px 30px 30px;
             transition: margin-left 0.2s cubic-bezier(.42,0,.58,1);
         }}
@@ -98,7 +97,7 @@ app_ui = ui.tags.div(
               transition-duration: 0.4s;
               cursor: pointer;
               font-family: 'VAGRoundedLight';
-              box-shadow:             
+              box-shadow:
               0 8px 32px 4px rgba(0,0,0,0.40),
               0 2px 8px 1px rgba(0,0,0,0.24),
               0 0 0 6px rgba(255,56,1,0.12);
@@ -127,7 +126,7 @@ app_ui = ui.tags.div(
             padding: 10px;
             height: 48px;
             width: 90%;
-            
+
             font-family: 'VAGRoundedLight';
         }
     """),
@@ -173,13 +172,16 @@ app_ui = ui.tags.div(
                 ),
                 style="margin-bottom: 32px;"
             ),
+            # Refresh button stays at the very top (right after host select)
             ui.tags.div(
                 ui.input_action_button(
                     "start_btn", "Refresh", class_="button button1",
                     style="width:90%; margin-bottom:8px;"
                 ),
             ),
-            # View selector buttons
+            # Dynamic resource/PLC buttons come next
+            ui.output_ui("resource_buttons"),
+            # View selector buttons and the rest follow below
             ui.tags.div(
                 ui.input_action_button("view_output", "Output", class_="button button1",
                                        style="width:90%; margin-bottom:8px;"),
@@ -187,7 +189,6 @@ app_ui = ui.tags.div(
                                        style="width:90%; margin-bottom:24px;"),
                 style="margin-bottom: 16px;"
             ),
-            # --- Additional sidebar content goes here ---
             class_="sidebar",
             id="sidebar"
         ),
@@ -288,6 +289,41 @@ def server(inputs, outputs, session):
                 # Add any UI elements for your Database view here
             )
         return None
+
+    @outputs()
+    @render.ui
+    def resource_buttons():
+        selected_hosts = inputs.host_select()
+        sftp_hosts = config.get('sftp_hosts', [])
+
+        # If "all" is selected, show PLC names as buttons
+        if not selected_hosts or selected_hosts == "all":
+            plc_buttons = [
+                ui.input_action_button(f"plc_{i}", host.get('hostname'),
+                                       class_="button button1", style="width:90%; margin-bottom:8px;")
+                for i, host in enumerate(sftp_hosts)
+            ]
+            if not plc_buttons:
+                return ui.tags.p("No PLCs found.")
+            return ui.tags.div(*plc_buttons)
+
+        # If a single PLC is selected, show its resources as buttons
+        host_cfg = next((host for host in sftp_hosts
+                         if host.get('hostname') == selected_hosts or host.get('ip_address') == selected_hosts), None)
+        if not host_cfg:
+            return ui.tags.p("No resources found for this PLC.")
+
+        resources = host_cfg.get('resources', [])
+        if not resources:
+            return ui.tags.p("No resources found for this PLC.")
+
+        # Make a button for each resource (not "View"), like the "database" button works
+        resource_button = [
+            ui.input_action_button(f"resource_{i}", resource,
+                                   class_="button button1", style="width:90%; margin-bottom:8px;")
+            for i, resource in enumerate(resources)
+        ]
+        return ui.tags.div(*resource_button)
 
 
 app = App(app_ui, server)
