@@ -37,4 +37,22 @@ sftp_hosts:
       - "/home/pi/BTEST/WT1/for.dat"
     db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
 
-
+#sftp_hosts:
+#  - hostname: "AFV"
+#    ip_address: "10.243.13.85"
+#    port: *port
+#    username: *username
+#    password: *password
+#    resource:
+#      - "Insp"
+#      - "House"
+#      - "UitSeq"
+#    db_path: "//SVKWA337/Pilot_Project/Rxi/REG/controller.ctrl"
+#  - hostname: "REG"
+#    ip_address: "10.243.13.89"
+#    port: *port
+#    username: *username
+#    password: *password
+#    resource:
+#      - "House"
+#    db_path: "//SVKWA337/Pilot_Project/Rxi/AFV/controller.ctrl"
