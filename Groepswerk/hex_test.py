@@ -22,3 +22,5 @@ for col in columns:
     print(col)
 
 conn.close()
+
+print()
