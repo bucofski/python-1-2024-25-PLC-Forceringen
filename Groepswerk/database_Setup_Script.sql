@@ -1,113 +1,167 @@
--- ==========================
--- CREATE FORCING TABLE
--- ==========================
-DROP TABLE IF EXISTS forcing_data;
+-- =============================================
+-- TABLE CREATION
+-- =============================================
 
-CREATE TABLE forcing_data (
-    department_name VARCHAR(255) NOT NULL,    -- E.g., Sidgal
-    plc_name VARCHAR(255) NOT NULL,           -- E.g., S1E
-    resource_number VARCHAR(50) NOT NULL,     -- Resource number (e.g., NIET, KMOR, WT1)
-    full_resource_name VARCHAR(255) GENERATED ALWAYS AS (plc_name || resource_number) STORED, -- Auto-computed column combining plc_name and resource_number
-    variable_name_id VARCHAR(255),            -- Unique identifier for the variable (e.g., G00001)
-    KKS VARCHAR(255),                         -- KKS identifier for the variable (e.g., House.Output.KKS1)
-    comment TEXT,                             -- Comment for the variable
-    second_comment TEXT,                      -- Secondary comment for the variable
-    variable_type VARCHAR(50),                -- Data type of the variable (e.g., LINT, BOOL)
-    variable_value DOUBLE PRECISION,          -- Value of the variable
-    UNIQUE (plc_name, full_resource_name, variable_name_id) -- Unique key to avoid duplicates
+DROP TABLE IF EXISTS bit_force_reason, resource_bit, plc_resource, resource, plc CASCADE;
+
+-- 1. PLC table: each PLC is unique
+CREATE TABLE plc (
+    plc_id SERIAL PRIMARY KEY,
+    plc_name VARCHAR(100) NOT NULL UNIQUE
 );
 
--- ==========================
--- INSERT ALL DATA INTO FORCING TABLE
--- ==========================
+-- 2. Resource table: resources can be shared among PLCs
+CREATE TABLE resource (
+    resource_id SERIAL PRIMARY KEY,
+    resource_name VARCHAR(100) NOT NULL UNIQUE
+);
 
-INSERT INTO forcing_data (
-    department_name,
-    plc_name,
-    resource_number,
-    variable_name_id,
-    KKS,
-    comment,
-    second_comment,
-    variable_type,
-    variable_value
-)
+-- 3. Association of PLC and Resource (many-to-many if needed, or one-to-many if each PLC has one resource)
+-- If each PLC has exactly one resource, use a foreign key in plc; otherwise use this join table.
+CREATE TABLE plc_resource (
+    plc_id INTEGER NOT NULL REFERENCES plc(plc_id) ON DELETE CASCADE,
+    resource_id INTEGER NOT NULL REFERENCES resource(resource_id) ON DELETE CASCADE,
+    PRIMARY KEY (plc_id, resource_id)
+);
+
+-- 4. Bit entries: each bit is defined by a bit_number within a resource
+-- The same bit_number text (e.g. 'W1000') can occur in different resources
+CREATE TABLE resource_bit (
+    bit_id SERIAL PRIMARY KEY,
+    resource_id INTEGER NOT NULL REFERENCES resource(resource_id) ON DELETE CASCADE,
+    bit_number VARCHAR(20) NOT NULL,
+    kks VARCHAR(50) NOT NULL UNIQUE,
+    comment TEXT,
+    second_comment TEXT,
+    value VARCHAR(50),
+    UNIQUE (resource_id, bit_number)
+);
+
+-- 5. Forced reasons: track why a bit is forced
+CREATE TABLE bit_force_reason (
+    force_id SERIAL PRIMARY KEY,
+    bit_id INTEGER NOT NULL REFERENCES resource_bit(bit_id) ON DELETE CASCADE,
+    reason TEXT NOT NULL,
+    forced_by VARCHAR(100),
+    forced_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- =============================================
+-- ADD DATA
+-- =============================================
+
+-- Insert unique PLC entries
+INSERT INTO plc (plc_name)
 VALUES
-    -- Variables for Sidgal_1 Production Line
-    ('Sidgal', 'S1E', '1', 'G00001', 'House.Output.KKS1', 'None', 'None', 'LINT', 123.45),
-    ('Sidgal', 'S1E', '2', 'G00002', 'House.Output.KKS2', 'None', 'None', 'LINT', 678.90),
-    ('Sidgal', 'S1C', '3', 'G00003', 'House.Output.KKS3', 'Maintenance Required', 'None', 'BOOL', 1),
-    ('Sidgal', 'S1K', '4', 'G00004', 'House.Output.KKS4', 'None', 'Critical Issue', 'LINT', 0),
+    ('S1E'), ('S1C'), ('S1K'), ('S1S'),
+    ('S2E'), ('S2C'), ('S2K'), ('S2S'),
+    ('S3E'), ('S3C'), ('S3K'), ('S3S'),
+    ('BTEST');
 
-    -- Resources without variables in Sidgal_2 Production Line
-    ('Sidgal', 'S2E', '1', NULL, NULL, NULL, NULL, NULL, NULL),
-    ('Sidgal', 'S2C', '3', NULL, NULL, NULL, NULL, NULL, NULL),
-    ('Sidgal', 'S2K', '2', NULL, NULL, NULL, NULL, NULL, NULL),
-    ('Sidgal', 'S2S', '4', NULL, NULL, NULL, NULL, NULL, NULL),
+-- Insert unique resource entries
+INSERT INTO resource (resource_name)
+VALUES
+    ('1'), ('2'), ('3'), ('4'), ('5'),
+    ('6'), ('7'), ('8'), ('9'), ('10'),
+    ('KMOR'), ('NIET'), ('WT1');
 
-    -- Variables for Sidgal_3 Production Line
-    ('Sidgal', 'S3E', '1', NULL, NULL, NULL, NULL, NULL, NULL),
-    ('Sidgal', 'S3C', '2', NULL, NULL, NULL, NULL, NULL, NULL),
-    ('Sidgal', 'S3K', '3', NULL, NULL, NULL, NULL, NULL, NULL),
-    ('Sidgal', 'S3S', '4', NULL, NULL, NULL, NULL, NULL, NULL),
+-- Example: Map PLCs to their resources (assuming each PLC has multiple resources)
+-- NOTE: The `plc_id` and `resource_id` should align with the corresponding table entries
+INSERT INTO plc_resource (plc_id, resource_id)
+VALUES
+    (1, 1), -- Map PLC 'S1E' (plc_id=1) with all the needed resources
+    (1, 2),
+    (1, 3),
+    (1, 4),
+    (2, 1), -- Map PLC 'S1C' (plc_id=2) with all the needed resources
+    (2, 2),
+    (2, 3),
+    (2, 4),
+    (3, 1), -- Map PLC 'S1K' (plc_id=3) with all the needed resources
+    (3, 2),
+    (3, 3),
+    (3, 4),
+    (4, 1), -- Map PLC 'S1S' (plc_id=4) with all the needed resources
+    (4, 2),
+    (4, 3),
+    (4, 4),
+    (5, 1), -- Map PLC 'S2E' (plc_id=5) with all the needed resources
+    (5, 2),
+    (5, 3),
+    (5, 4),
+    (6, 1), -- Map PLC 'S2C' (plc_id=6) with all the needed resources
+    (6, 2),
+    (6, 3),
+    (6, 4),
+    (7, 1), -- Map PLC 'S2K' (plc_id=7) with all the needed resources
+    (7, 2),
+    (7, 3),
+    (7, 4),
+    (8, 1), -- Map PLC 'S2S' (plc_id=8) with all the needed resources
+    (8, 2),
+    (8, 3),
+    (8, 4),
+    (9, 1), -- Map PLC 'S3E' (plc_id=9) with all the needed resources
+    (9, 2),
+    (9, 3),
+    (9, 4),
+    (10, 1), -- Map PLC 'S3C' (plc_id=10) with all the needed resources
+    (10, 2),
+    (10, 3),
+    (10, 4),
+    (11, 1), -- Map PLC 'S3K' (plc_id=11) with all the needed resources
+    (11, 2),
+    (11, 3),
+    (11, 4),
+    (12, 1), -- Map PLC 'S3S' (plc_id=12) with all the needed resources
+    (12, 2),
+    (12, 3),
+    (12, 4),
+    (13, 11), -- Map PLC 'BTEST' (plc_id=13) with its unique resources
+    (13, 12),
+    (13, 13);
 
-    -- BT2: Only NIET, KMOR, and WT1 resource_numbers
-    ('BT2', 'BTEST', 'NIET', 'BT2001', 'BT2.Output.KKS1', 'Example for NIET', 'Second Comment 1', 'LINT', 50.55),
-    ('BT2', 'BTEST', 'KMOR', 'BT2002', 'BT2.Output.KKS2', 'Example for KMOR', 'Second Comment 2', 'BOOL', 1),
-    ('BT2', 'BTEST', 'WT1', 'BT2003', 'BT2.Output.KKS3', 'Example for WT1', 'Second Comment 3', 'DOUBLE', 101.2);
+-- =============================================
+-- SAMPLE DATA
+-- =============================================
 
+WITH res_id AS (
+    SELECT resource_id FROM resource WHERE resource_name = 'NIET'
+)
+INSERT INTO resource_bit (resource_id, bit_number, kks, comment, second_comment, value)
+VALUES
+(
+    (SELECT resource_id FROM res_id),
+    'R01420',
+    'SIDTOVY.Test.Override3',
+    'None',
+    'None',
+    '4640e400'
+),
+(
+    (SELECT resource_id FROM res_id),
+    'W00872',
+    'PilootTD.Interlock.VrijgaveBewegen_KOPPELZO',
+    'Vrijgave Bewegen Koppelzone',
+    '[TD2,TDS,1201]',
+    '0'
+);
 
--- ==========================
--- SELECT QUERY
--- ==========================
+-- =============================================
+-- QUERY
+-- =============================================
 
--- QUERY BT2
-
-SELECT plc_name
-	  ,resource_number
-	  ,variable_name_id
-	  ,KKS
-	  ,comment
-	  ,second_comment
-	  ,variable_value
-FROM
-	   forcing_data
-WHERE department_name = 'BT2';
-
--- QUERY Sidgal
-
-SELECT full_resource_name
-	  ,variable_name_id
-	  ,KKS
-	  ,comment
-	  ,second_comment
-	  ,variable_value
-FROM
-	   forcing_data
-WHERE department_name = 'Sidgal';
-
--- ==========================
--- CREATION VIEWS
--- ==========================
-
-CREATE VIEW bt2_view AS
-SELECT plc_name,
-       resource_number,
-       variable_name_id,
-       KKS,
-       comment,
-       second_comment,
-       variable_value
-FROM forcing_data
-WHERE department_name = 'BT2';
-
-
-CREATE VIEW sidgal_view AS
-SELECT full_resource_name,
-       variable_name_id,
-       KKS,
-       comment,
-       second_comment,
-       variable_value
-FROM forcing_data
-WHERE department_name = 'Sidgal';
+SELECT
+    p.plc_name,
+    r.resource_name AS resource,
+    rb.bit_number AS variable_name_id,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE r.resource_name = 'NIET'
+ORDER BY p.plc_name, rb.bit_number;
