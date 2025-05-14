@@ -22,7 +22,7 @@ sftp_hosts:
     port: *port
     username: *username
     password: *password
-    remote_files:
+    resources:
       - "House"
     db_path: "//SVKWA337/Pilot_Project/Rxi/AFV/controller.ctrl"
 
