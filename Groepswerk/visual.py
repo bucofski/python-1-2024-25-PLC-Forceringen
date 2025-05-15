@@ -346,7 +346,7 @@ def server(inputs, outputs, session):
                 ui.tags.h2("PLC View"),
                 ui.tags.p(f"Geselecteerde PLC: {selected_plc()}"),
                 ui.tags.p("Voeg hier info/logica toe voor deze PLC.")
-    )
+            )
         return None
 
     @outputs()
