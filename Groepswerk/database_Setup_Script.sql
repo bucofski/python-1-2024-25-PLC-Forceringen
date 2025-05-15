@@ -148,7 +148,7 @@ VALUES
 );
 
 -- =============================================
--- QUERY
+-- QUERRY
 -- =============================================
 
 SELECT
@@ -165,3 +165,228 @@ JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
 WHERE r.resource_name = 'NIET'
 ORDER BY p.plc_name, rb.bit_number;
+
+-- =============================================
+-- VIEUWS - PLC
+-- =============================================
+
+-- View for PLC 'S1E'
+CREATE VIEW view_plc_s1e AS
+SELECT
+    p.plc_name AS PLC,
+    r.resource_name AS resource,
+    rb.bit_number AS variable,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE p.plc_name = 'S1E'
+ORDER BY r.resource_name, rb.bit_number;
+
+-- View for PLC 'S1C'
+CREATE VIEW view_plc_s1c AS
+SELECT
+    p.plc_name AS PLC,
+    r.resource_name AS resource,
+    rb.bit_number AS variable,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE p.plc_name = 'S1C'
+ORDER BY r.resource_name, rb.bit_number;
+
+-- View for PLC 'S1K'
+CREATE VIEW view_plc_s1k AS
+SELECT
+    p.plc_name AS PLC,
+    r.resource_name AS resource,
+    rb.bit_number AS variable,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE p.plc_name = 'S1K'
+ORDER BY r.resource_name, rb.bit_number;
+
+-- View for PLC 'S1S'
+CREATE VIEW view_plc_s1s AS
+SELECT
+    p.plc_name AS PLC,
+    r.resource_name AS resource,
+    rb.bit_number AS variable,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE p.plc_name = 'S1S'
+ORDER BY r.resource_name, rb.bit_number;
+
+-- View for PLC 'S2E'
+CREATE VIEW view_plc_s2e AS
+SELECT
+    p.plc_name AS PLC,
+    r.resource_name AS resource,
+    rb.bit_number AS variable,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE p.plc_name = 'S2E'
+ORDER BY r.resource_name, rb.bit_number;
+
+-- View for PLC 'S2C'
+CREATE VIEW view_plc_s2c AS
+SELECT
+    p.plc_name AS PLC,
+    r.resource_name AS resource,
+    rb.bit_number AS variable,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE p.plc_name = 'S2C'
+ORDER BY r.resource_name, rb.bit_number;
+
+-- View for PLC 'S2K'
+CREATE VIEW view_plc_s2k AS
+SELECT
+    p.plc_name AS PLC,
+    r.resource_name AS resource,
+    rb.bit_number AS variable,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE p.plc_name = 'S2K'
+ORDER BY r.resource_name, rb.bit_number;
+
+-- View for PLC 'S2S'
+CREATE VIEW view_plc_s2s AS
+SELECT
+    p.plc_name AS PLC,
+    r.resource_name AS resource,
+    rb.bit_number AS variable,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE p.plc_name = 'S2S'
+ORDER BY r.resource_name, rb.bit_number;
+
+-- View for PLC 'S3E'
+CREATE VIEW view_plc_s3e AS
+SELECT
+    p.plc_name AS PLC,
+    r.resource_name AS resource,
+    rb.bit_number AS variable,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE p.plc_name = 'S3E'
+ORDER BY r.resource_name, rb.bit_number;
+
+-- View for PLC 'S3C'
+CREATE VIEW view_plc_s3c AS
+SELECT
+    p.plc_name AS PLC,
+    r.resource_name AS resource,
+    rb.bit_number AS variable,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE p.plc_name = 'S3C'
+ORDER BY r.resource_name, rb.bit_number;
+
+-- View for PLC 'S3K'
+CREATE VIEW view_plc_s3k AS
+SELECT
+    p.plc_name AS PLC,
+    r.resource_name AS resource,
+    rb.bit_number AS variable,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE p.plc_name = 'S3K'
+ORDER BY r.resource_name, rb.bit_number;
+
+-- View for PLC 'S3S'
+CREATE VIEW view_plc_s3s AS
+SELECT
+    p.plc_name AS PLC,
+    r.resource_name AS resource,
+    rb.bit_number AS variable,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE p.plc_name = 'S3S'
+ORDER BY r.resource_name, rb.bit_number;
+
+-- View for PLC 'BTEST'
+CREATE VIEW view_plc_btest AS
+SELECT
+    p.plc_name AS PLC,
+    r.resource_name AS resource,
+    rb.bit_number AS variable,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value
+FROM resource r
+JOIN plc_resource pr ON r.resource_id = pr.resource_id
+JOIN plc p ON pr.plc_id = p.plc_id
+JOIN resource_bit rb ON rb.resource_id = r.resource_id
+WHERE p.plc_name = 'BTEST'
+ORDER BY r.resource_name, rb.bit_number;
