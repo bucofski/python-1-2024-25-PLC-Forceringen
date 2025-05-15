@@ -171,6 +171,7 @@ ORDER BY p.plc_name, rb.bit_number;
 -- =============================================
 
 -- View for PLC 'S1E'
+DROP VIEW IF EXISTS view_plc_s1e;
 CREATE VIEW view_plc_s1e AS
 SELECT
     p.plc_name AS PLC,
@@ -179,15 +180,19 @@ SELECT
     rb.kks,
     rb.comment,
     rb.second_comment,
-    rb.value
+    rb.value,
+    bfr.forced_by,
+    bfr.forced_at
 FROM resource r
 JOIN plc_resource pr ON r.resource_id = pr.resource_id
 JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
+LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
 WHERE p.plc_name = 'S1E'
 ORDER BY r.resource_name, rb.bit_number;
 
 -- View for PLC 'S1C'
+DROP VIEW IF EXISTS view_plc_s1c;
 CREATE VIEW view_plc_s1c AS
 SELECT
     p.plc_name AS PLC,
@@ -196,15 +201,19 @@ SELECT
     rb.kks,
     rb.comment,
     rb.second_comment,
-    rb.value
+    rb.value,
+    bfr.forced_by,
+    bfr.forced_at
 FROM resource r
 JOIN plc_resource pr ON r.resource_id = pr.resource_id
 JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
+LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
 WHERE p.plc_name = 'S1C'
 ORDER BY r.resource_name, rb.bit_number;
 
 -- View for PLC 'S1K'
+DROP VIEW IF EXISTS view_plc_s1k;
 CREATE VIEW view_plc_s1k AS
 SELECT
     p.plc_name AS PLC,
@@ -213,15 +222,19 @@ SELECT
     rb.kks,
     rb.comment,
     rb.second_comment,
-    rb.value
+    rb.value,
+    bfr.forced_by,
+    bfr.forced_at
 FROM resource r
 JOIN plc_resource pr ON r.resource_id = pr.resource_id
 JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
+LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
 WHERE p.plc_name = 'S1K'
 ORDER BY r.resource_name, rb.bit_number;
 
 -- View for PLC 'S1S'
+DROP VIEW IF EXISTS view_plc_s1s;
 CREATE VIEW view_plc_s1s AS
 SELECT
     p.plc_name AS PLC,
@@ -230,15 +243,19 @@ SELECT
     rb.kks,
     rb.comment,
     rb.second_comment,
-    rb.value
+    rb.value,
+    bfr.forced_by,
+    bfr.forced_at
 FROM resource r
 JOIN plc_resource pr ON r.resource_id = pr.resource_id
 JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
+LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
 WHERE p.plc_name = 'S1S'
 ORDER BY r.resource_name, rb.bit_number;
 
 -- View for PLC 'S2E'
+DROP VIEW IF EXISTS view_plc_s2e;
 CREATE VIEW view_plc_s2e AS
 SELECT
     p.plc_name AS PLC,
@@ -247,15 +264,19 @@ SELECT
     rb.kks,
     rb.comment,
     rb.second_comment,
-    rb.value
+    rb.value,
+    bfr.forced_by,
+    bfr.forced_at
 FROM resource r
 JOIN plc_resource pr ON r.resource_id = pr.resource_id
 JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
+LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
 WHERE p.plc_name = 'S2E'
 ORDER BY r.resource_name, rb.bit_number;
 
 -- View for PLC 'S2C'
+DROP VIEW IF EXISTS view_plc_s2c;
 CREATE VIEW view_plc_s2c AS
 SELECT
     p.plc_name AS PLC,
@@ -264,15 +285,19 @@ SELECT
     rb.kks,
     rb.comment,
     rb.second_comment,
-    rb.value
+    rb.value,
+    bfr.forced_by,
+    bfr.forced_at
 FROM resource r
 JOIN plc_resource pr ON r.resource_id = pr.resource_id
 JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
+LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
 WHERE p.plc_name = 'S2C'
 ORDER BY r.resource_name, rb.bit_number;
 
 -- View for PLC 'S2K'
+DROP VIEW IF EXISTS view_plc_s2k;
 CREATE VIEW view_plc_s2k AS
 SELECT
     p.plc_name AS PLC,
@@ -281,15 +306,19 @@ SELECT
     rb.kks,
     rb.comment,
     rb.second_comment,
-    rb.value
+    rb.value,
+    bfr.forced_by,
+    bfr.forced_at
 FROM resource r
 JOIN plc_resource pr ON r.resource_id = pr.resource_id
 JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
+LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
 WHERE p.plc_name = 'S2K'
 ORDER BY r.resource_name, rb.bit_number;
 
 -- View for PLC 'S2S'
+DROP VIEW IF EXISTS view_plc_s2s;
 CREATE VIEW view_plc_s2s AS
 SELECT
     p.plc_name AS PLC,
@@ -298,15 +327,19 @@ SELECT
     rb.kks,
     rb.comment,
     rb.second_comment,
-    rb.value
+    rb.value,
+    bfr.forced_by,
+    bfr.forced_at
 FROM resource r
 JOIN plc_resource pr ON r.resource_id = pr.resource_id
 JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
+LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
 WHERE p.plc_name = 'S2S'
 ORDER BY r.resource_name, rb.bit_number;
 
 -- View for PLC 'S3E'
+DROP VIEW IF EXISTS view_plc_s3e;
 CREATE VIEW view_plc_s3e AS
 SELECT
     p.plc_name AS PLC,
@@ -315,15 +348,19 @@ SELECT
     rb.kks,
     rb.comment,
     rb.second_comment,
-    rb.value
+    rb.value,
+    bfr.forced_by,
+    bfr.forced_at
 FROM resource r
 JOIN plc_resource pr ON r.resource_id = pr.resource_id
 JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
+LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
 WHERE p.plc_name = 'S3E'
 ORDER BY r.resource_name, rb.bit_number;
 
 -- View for PLC 'S3C'
+DROP VIEW IF EXISTS view_plc_s3c;
 CREATE VIEW view_plc_s3c AS
 SELECT
     p.plc_name AS PLC,
@@ -332,15 +369,19 @@ SELECT
     rb.kks,
     rb.comment,
     rb.second_comment,
-    rb.value
+    rb.value,
+    bfr.forced_by,
+    bfr.forced_at
 FROM resource r
 JOIN plc_resource pr ON r.resource_id = pr.resource_id
 JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
+LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
 WHERE p.plc_name = 'S3C'
 ORDER BY r.resource_name, rb.bit_number;
 
 -- View for PLC 'S3K'
+DROP VIEW IF EXISTS view_plc_s3k;
 CREATE VIEW view_plc_s3k AS
 SELECT
     p.plc_name AS PLC,
@@ -349,15 +390,19 @@ SELECT
     rb.kks,
     rb.comment,
     rb.second_comment,
-    rb.value
+    rb.value,
+    bfr.forced_by,
+    bfr.forced_at
 FROM resource r
 JOIN plc_resource pr ON r.resource_id = pr.resource_id
 JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
+LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
 WHERE p.plc_name = 'S3K'
 ORDER BY r.resource_name, rb.bit_number;
 
 -- View for PLC 'S3S'
+DROP VIEW IF EXISTS view_plc_s3s;
 CREATE VIEW view_plc_s3s AS
 SELECT
     p.plc_name AS PLC,
@@ -366,15 +411,19 @@ SELECT
     rb.kks,
     rb.comment,
     rb.second_comment,
-    rb.value
+    rb.value,
+    bfr.forced_by,
+    bfr.forced_at
 FROM resource r
 JOIN plc_resource pr ON r.resource_id = pr.resource_id
 JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
+LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
 WHERE p.plc_name = 'S3S'
 ORDER BY r.resource_name, rb.bit_number;
 
 -- View for PLC 'BTEST'
+DROP VIEW IF EXISTS view_plc_btest;
 CREATE VIEW view_plc_btest AS
 SELECT
     p.plc_name AS PLC,
@@ -383,10 +432,13 @@ SELECT
     rb.kks,
     rb.comment,
     rb.second_comment,
-    rb.value
+    rb.value,
+    bfr.forced_by,
+    bfr.forced_at
 FROM resource r
 JOIN plc_resource pr ON r.resource_id = pr.resource_id
 JOIN plc p ON pr.plc_id = p.plc_id
 JOIN resource_bit rb ON rb.resource_id = r.resource_id
+LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
 WHERE p.plc_name = 'BTEST'
 ORDER BY r.resource_name, rb.bit_number;
