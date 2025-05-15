@@ -25,7 +25,7 @@ CREATE TABLE plc_resource (
 );
 
 -- 4. Bit entries: each bit is defined by a bit_number within a resource
--- The same bit_number text (e.g. 'W1000') can occur in different resources
+-- The same bit_number text (e.g., 'W1000') can occur in different resources
 CREATE TABLE resource_bit (
     bit_id SERIAL PRIMARY KEY,
     resource_id INTEGER NOT NULL REFERENCES resource(resource_id) ON DELETE CASCADE,
@@ -34,6 +34,7 @@ CREATE TABLE resource_bit (
     comment TEXT,
     second_comment TEXT,
     value VARCHAR(50),
+    Forced_Status BOOLEAN DEFAULT TRUE, -- Added Forced_Status column
     UNIQUE (resource_id, bit_number)
 );
 
@@ -47,7 +48,55 @@ CREATE TABLE bit_force_reason (
 );
 
 -- =============================================
--- ADD DATA
+-- TRIGGER FUNCTION TO HANDLE FORCED_STATUS UPDATES
+-- =============================================
+
+CREATE OR REPLACE FUNCTION update_forced_status_per_plc()
+RETURNS TRIGGER AS $$
+DECLARE
+    plc_id_to_update INTEGER;
+BEGIN
+    -- Step 1: Determine the plc_id that corresponds to the resource_id in the row being written
+    SELECT plc_id INTO plc_id_to_update
+    FROM plc_resource
+    WHERE resource_id = NEW.resource_id
+    LIMIT 1;
+
+    -- Step 2: Set Forced_Status = FALSE for all existing rows for the same PLC
+    UPDATE resource_bit
+    SET Forced_Status = FALSE
+    WHERE resource_id IN (
+        SELECT resource_id
+        FROM plc_resource
+        WHERE plc_id = plc_id_to_update
+    )
+    AND bit_id NOT IN (
+        -- Exclude the rows being inserted/updated in this transaction
+        SELECT bit_id FROM resource_bit WHERE resource_id = NEW.resource_id
+    );
+
+    -- Step 3: Update the row being inserted/updated, ensuring it is marked Forced_Status = TRUE
+    NEW.Forced_Status := TRUE;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- =============================================
+-- TRIGGER TO APPLY THE FUNCTION
+-- =============================================
+
+-- Drop the existing trigger if it exists
+DROP TRIGGER IF EXISTS trigger_update_forced_status ON resource_bit;
+
+-- Create the trigger to fire AFTER INSERT or UPDATE operations
+CREATE TRIGGER trigger_update_forced_status
+AFTER INSERT OR UPDATE ON resource_bit
+FOR EACH ROW
+EXECUTE FUNCTION update_forced_status_per_plc();
+
+-- =============================================
+-- INSERT INITIAL DATA
 -- =============================================
 
 -- Insert unique PLC entries
@@ -125,320 +174,15 @@ VALUES
 -- SAMPLE DATA
 -- =============================================
 
-WITH res_id AS (
-    SELECT resource_id FROM resource WHERE resource_name = 'NIET'
-)
+-- Insert some sample data into resource_bit
 INSERT INTO resource_bit (resource_id, bit_number, kks, comment, second_comment, value)
 VALUES
-(
-    (SELECT resource_id FROM res_id),
-    'R01420',
-    'SIDTOVY.Test.Override3',
-    'None',
-    'None',
-    '4640e400'
-),
-(
-    (SELECT resource_id FROM res_id),
-    'W00872',
-    'PilootTD.Interlock.VrijgaveBewegen_KOPPELZO',
-    'Vrijgave Bewegen Koppelzone',
-    '[TD2,TDS,1201]',
-    '0'
-);
+    (1, 'W1000', 'KKS_001', 'Comment 1', 'Second Comment 1', 'Value 1'),
+    (1, 'W1001', 'KKS_002', 'Comment 2', 'Second Comment 2', 'Value 2'),
+    (1, 'W1002', 'KKS_003', 'Comment 3', 'Second Comment 3', 'Value 3');
 
--- =============================================
--- QUERRY
--- =============================================
-
-SELECT
-    p.plc_name,
-    r.resource_name AS resource,
-    rb.bit_number AS variable_name_id,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-WHERE r.resource_name = 'NIET'
-ORDER BY p.plc_name, rb.bit_number;
-
--- =============================================
--- VIEUWS - PLC
--- =============================================
-
--- View for PLC 'S1E'
-DROP VIEW IF EXISTS view_plc_s1e;
-CREATE VIEW view_plc_s1e AS
-SELECT
-    p.plc_name AS PLC,
-    r.resource_name AS resource,
-    rb.bit_number AS variable,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value,
-    bfr.forced_by,
-    bfr.forced_at
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
-WHERE p.plc_name = 'S1E'
-ORDER BY r.resource_name, rb.bit_number;
-
--- View for PLC 'S1C'
-DROP VIEW IF EXISTS view_plc_s1c;
-CREATE VIEW view_plc_s1c AS
-SELECT
-    p.plc_name AS PLC,
-    r.resource_name AS resource,
-    rb.bit_number AS variable,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value,
-    bfr.forced_by,
-    bfr.forced_at
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
-WHERE p.plc_name = 'S1C'
-ORDER BY r.resource_name, rb.bit_number;
-
--- View for PLC 'S1K'
-DROP VIEW IF EXISTS view_plc_s1k;
-CREATE VIEW view_plc_s1k AS
-SELECT
-    p.plc_name AS PLC,
-    r.resource_name AS resource,
-    rb.bit_number AS variable,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value,
-    bfr.forced_by,
-    bfr.forced_at
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
-WHERE p.plc_name = 'S1K'
-ORDER BY r.resource_name, rb.bit_number;
-
--- View for PLC 'S1S'
-DROP VIEW IF EXISTS view_plc_s1s;
-CREATE VIEW view_plc_s1s AS
-SELECT
-    p.plc_name AS PLC,
-    r.resource_name AS resource,
-    rb.bit_number AS variable,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value,
-    bfr.forced_by,
-    bfr.forced_at
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
-WHERE p.plc_name = 'S1S'
-ORDER BY r.resource_name, rb.bit_number;
-
--- View for PLC 'S2E'
-DROP VIEW IF EXISTS view_plc_s2e;
-CREATE VIEW view_plc_s2e AS
-SELECT
-    p.plc_name AS PLC,
-    r.resource_name AS resource,
-    rb.bit_number AS variable,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value,
-    bfr.forced_by,
-    bfr.forced_at
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
-WHERE p.plc_name = 'S2E'
-ORDER BY r.resource_name, rb.bit_number;
-
--- View for PLC 'S2C'
-DROP VIEW IF EXISTS view_plc_s2c;
-CREATE VIEW view_plc_s2c AS
-SELECT
-    p.plc_name AS PLC,
-    r.resource_name AS resource,
-    rb.bit_number AS variable,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value,
-    bfr.forced_by,
-    bfr.forced_at
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
-WHERE p.plc_name = 'S2C'
-ORDER BY r.resource_name, rb.bit_number;
-
--- View for PLC 'S2K'
-DROP VIEW IF EXISTS view_plc_s2k;
-CREATE VIEW view_plc_s2k AS
-SELECT
-    p.plc_name AS PLC,
-    r.resource_name AS resource,
-    rb.bit_number AS variable,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value,
-    bfr.forced_by,
-    bfr.forced_at
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
-WHERE p.plc_name = 'S2K'
-ORDER BY r.resource_name, rb.bit_number;
-
--- View for PLC 'S2S'
-DROP VIEW IF EXISTS view_plc_s2s;
-CREATE VIEW view_plc_s2s AS
-SELECT
-    p.plc_name AS PLC,
-    r.resource_name AS resource,
-    rb.bit_number AS variable,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value,
-    bfr.forced_by,
-    bfr.forced_at
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
-WHERE p.plc_name = 'S2S'
-ORDER BY r.resource_name, rb.bit_number;
-
--- View for PLC 'S3E'
-DROP VIEW IF EXISTS view_plc_s3e;
-CREATE VIEW view_plc_s3e AS
-SELECT
-    p.plc_name AS PLC,
-    r.resource_name AS resource,
-    rb.bit_number AS variable,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value,
-    bfr.forced_by,
-    bfr.forced_at
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
-WHERE p.plc_name = 'S3E'
-ORDER BY r.resource_name, rb.bit_number;
-
--- View for PLC 'S3C'
-DROP VIEW IF EXISTS view_plc_s3c;
-CREATE VIEW view_plc_s3c AS
-SELECT
-    p.plc_name AS PLC,
-    r.resource_name AS resource,
-    rb.bit_number AS variable,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value,
-    bfr.forced_by,
-    bfr.forced_at
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
-WHERE p.plc_name = 'S3C'
-ORDER BY r.resource_name, rb.bit_number;
-
--- View for PLC 'S3K'
-DROP VIEW IF EXISTS view_plc_s3k;
-CREATE VIEW view_plc_s3k AS
-SELECT
-    p.plc_name AS PLC,
-    r.resource_name AS resource,
-    rb.bit_number AS variable,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value,
-    bfr.forced_by,
-    bfr.forced_at
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
-WHERE p.plc_name = 'S3K'
-ORDER BY r.resource_name, rb.bit_number;
-
--- View for PLC 'S3S'
-DROP VIEW IF EXISTS view_plc_s3s;
-CREATE VIEW view_plc_s3s AS
-SELECT
-    p.plc_name AS PLC,
-    r.resource_name AS resource,
-    rb.bit_number AS variable,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value,
-    bfr.forced_by,
-    bfr.forced_at
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
-WHERE p.plc_name = 'S3S'
-ORDER BY r.resource_name, rb.bit_number;
-
--- View for PLC 'BTEST'
-DROP VIEW IF EXISTS view_plc_btest;
-CREATE VIEW view_plc_btest AS
-SELECT
-    p.plc_name AS PLC,
-    r.resource_name AS resource,
-    rb.bit_number AS variable,
-    rb.kks,
-    rb.comment,
-    rb.second_comment,
-    rb.value,
-    bfr.forced_by,
-    bfr.forced_at
-FROM resource r
-JOIN plc_resource pr ON r.resource_id = pr.resource_id
-JOIN plc p ON pr.plc_id = p.plc_id
-JOIN resource_bit rb ON rb.resource_id = r.resource_id
-LEFT JOIN bit_force_reason bfr ON bfr.bit_id = rb.bit_id
-WHERE p.plc_name = 'BTEST'
-ORDER BY r.resource_name, rb.bit_number;
+-- Insert some sample data into bit_force_reason
+INSERT INTO bit_force_reason (bit_id, reason, forced_by)
+VALUES
+    (1, 'Testing Force Reason', 'Admin'),
+    (2, 'Maintenance Reason', 'Admin');
