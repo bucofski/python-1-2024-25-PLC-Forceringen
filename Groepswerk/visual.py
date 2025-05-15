@@ -245,7 +245,7 @@ def server(inputs, outputs, session):
     selected_view = reactive.Value("output")  # "output" or "database"
     selected_resource = reactive.Value(None)
     selected_plc = reactive.Value(None)  # Only when used "all"
-    
+
     # View-switching logic
     @reactive.effect
     @reactive.event(inputs.view_output)
@@ -258,17 +258,18 @@ def server(inputs, outputs, session):
     def _():
         selected_view.set("database")
         print("Selected view is:", selected_view())
-    
+
     @reactive.effect
     def handle_resource_clicks():
         sftp_hosts = config.get('sftp_hosts', [])
         selected_host_val = inputs.host_select()
 
-        # Filter de juiste host(s)
+        # Filter the right host(s)
         if selected_host_val == "all":
             hosts = sftp_hosts
         else:
-            hosts = [h for h in sftp_hosts if h.get('hostname') == selected_host_val or h.get('ip_address') == selected_host_val]
+            hosts = [h for h in sftp_hosts if
+                     h.get('hostname') == selected_host_val or h.get('ip_address') == selected_host_val]
 
         for i, host in enumerate(hosts):
             resources = host.get('resources', [])
@@ -277,17 +278,22 @@ def server(inputs, outputs, session):
                 if hasattr(inputs, btn_id):
                     btn_input = getattr(inputs, btn_id)
                     if btn_input() > 0:
+                        # Find which PLC this resource belongs to
+                        host_name = host.get("hostname", host.get("ip_address"))
+                        # Set the resource selection
                         selected_resource.set(resource)
+                        # Update the PLC selection to maintain parent-child relationship
+                        selected_plc.set(host_name)
                         selected_view.set("resource")
-                        print(f"Selected resource: {resource}")
+                        print(f"Selected resource: {resource} on PLC: {host_name}")
                         print(f"Selected view: {selected_view()}")
 
     @reactive.effect
     def handle_plc_clicks():
         sftp_hosts = config.get('sftp_hosts', [])
-        
+
         if inputs.host_select() != "all":
-            return  # alleen actief als "all" geselecteerd is
+            return  # only active when "all" is selected
 
         for i, host in enumerate(sftp_hosts):
             btn_id = f"plc_{i}"
@@ -296,9 +302,11 @@ def server(inputs, outputs, session):
                 if btn_input() > 0:
                     hostname = host.get("hostname", host.get("ip_address"))
                     print(f"PLC clicked: {hostname}")
+                    # Set PLC selection
                     selected_plc.set(hostname)
+                    # IMPORTANT: Clear resource selection when PLC changes
+                    selected_resource.set(None)
                     selected_view.set("ALL")
-
 
     @outputs()
     @render.text
@@ -314,8 +322,8 @@ def server(inputs, outputs, session):
     @reactive.event(inputs.start_btn)
     def on_start():
         selected_host_value = (
-                    selected_plc() if inputs.host_select() == "all" else inputs.host_select()
-                )
+            selected_plc() if inputs.host_select() == "all" else inputs.host_select()
+        )
         captured_output = run_head_and_capture_output(config, selected_host_value)
         terminal_text.set(captured_output or "[No output produced]")
 
@@ -339,13 +347,13 @@ def server(inputs, outputs, session):
             return ui.tags.div(
                 ui.tags.h2("Resource"),
                 ui.tags.p(f"Geselecteerde resource: {selected_resource()}"),
-                ui.tags.p("Voeg hier je resource data/logica toe.")
+                ui.tags.p("Resource content goes here...")
             )
         elif selected_view() == "ALL":
             return ui.tags.div(
                 ui.tags.h2("PLC View"),
                 ui.tags.p(f"Geselecteerde PLC: {selected_plc()}"),
-                ui.tags.p("Voeg hier info/logica toe voor deze PLC.")
+                ui.tags.p("PLC content goes here....")
             )
         return None
 
@@ -356,17 +364,25 @@ def server(inputs, outputs, session):
         sftp_hosts = config.get('sftp_hosts', [])
 
         if not selected_hosts or selected_hosts == "all":
-            plc_buttons = [
-                ui.input_action_button(f"plc_{i}", host.get('hostname'),
-                                    class_="button button1", style="width:90%; margin-bottom:8px;")
-                for i, host in enumerate(sftp_hosts)
-            ]
+            plc_buttons = []
+            for i, host in enumerate(sftp_hosts):
+                hostname = host.get('hostname', host.get('ip_address'))
+                # Add selected class if this PLC is currently selected
+                class_name = "button button1"
+                if selected_plc() == hostname:
+                    class_name += " selected"
+
+                plc_buttons.append(
+                    ui.input_action_button(f"plc_{i}", hostname,
+                                           class_=class_name, style="width:90%; margin-bottom:8px;")
+                )
+
             if not plc_buttons:
                 return ui.tags.p("No PLCs found.")
             return ui.tags.div(*plc_buttons)
 
         host_cfg = next((host for host in sftp_hosts
-                        if host.get('hostname') == selected_hosts or host.get('ip_address') == selected_hosts), None)
+                         if host.get('hostname') == selected_hosts or host.get('ip_address') == selected_hosts), None)
         if not host_cfg:
             return ui.tags.p("No resources found for this PLC.")
 
@@ -374,7 +390,7 @@ def server(inputs, outputs, session):
         if not resources:
             return ui.tags.p("No resources found for this PLC.")
 
-        # Geef visueel aan welke knop actief is
+        # Highlight which button is active
         buttons = []
         for i, resource in enumerate(resources):
             btn_id = f"resource_{i}"
@@ -383,15 +399,14 @@ def server(inputs, outputs, session):
                 class_name += " selected"
             buttons.append(
                 ui.input_action_button(btn_id, resource,
-                                    class_=class_name, style="width:90%; margin-bottom:8px;")
+                                       class_=class_name, style="width:90%; margin-bottom:8px;")
             )
         return ui.tags.div(*buttons)
-
 
 
 app = App(app_ui, server)
 
 if __name__ == "__main__":
     from shiny import run_app
-    
+
     run_app(app)
