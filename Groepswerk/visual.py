@@ -175,7 +175,7 @@ app_ui = ui.tags.div(
             # Refresh button stays at the very top (right after host select)
             ui.tags.div(
                 ui.input_action_button(
-                    "start_btn", "Refresh", class_="button button1",
+                    "start_btn", "Get Forcing", class_="button button1",
                     style="width:90%; margin-bottom:8px;"
                 ),
             ),
@@ -321,9 +321,9 @@ def server(inputs, outputs, session):
     @reactive.effect
     @reactive.event(inputs.start_btn)
     def on_start():
-        selected_host_value = (
-            selected_plc() if inputs.host_select() == "all" else inputs.host_select()
-        )
+        selected_host_value = inputs.host_select()
+        # When "all" is selected, pass "all" directly to run_head_and_capture_output
+        # instead of trying to use selected_plc() which could be None
         captured_output = run_head_and_capture_output(config, selected_host_value)
         terminal_text.set(captured_output or "[No output produced]")
 
