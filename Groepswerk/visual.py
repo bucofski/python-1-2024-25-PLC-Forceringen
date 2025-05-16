@@ -2,8 +2,7 @@ import sys
 import io
 import yaml
 import os
-from shiny import App, ui, render
-from shiny import reactive
+from shiny import App, ui, render, reactive
 import head
 
 # Read host options from YAML

@@ -36,3 +36,22 @@ sftp_hosts:
       - "KMOR"
       - "WT1"
     db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
+
+### SQL_SERVER info
+# database views
+database:
+  connection:
+    host: "localhost"
+    port: 5432
+    database: "your_database_name"
+    user: "your_username"
+    password: "your_password"
+  views:
+    - name: "view1"
+      query: "SELECT * FROM view1"
+      description: "First database view"
+    - name: "view2"
+      query: "SELECT * FROM view2"
+      description: "Second database view"
+
+
