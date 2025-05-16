@@ -246,6 +246,9 @@ def server(inputs, outputs, session):
     selected_resource = reactive.Value(None)
     selected_plc = reactive.Value(None)  # Only when used "all"
 
+    # Add this near the top of your server function where other reactive values are defined
+    resource_buttons_trigger = reactive.Value(0)
+
     # View-switching logic
     @reactive.effect
     @reactive.event(inputs.view_output)
@@ -394,6 +397,9 @@ def server(inputs, outputs, session):
     @outputs()
     @render.ui
     def resource_buttons():
+        # Make this output depend on the trigger
+        resource_buttons_trigger()
+
         selected_hosts = inputs.host_select()
         sftp_hosts = config.get('sftp_hosts', [])
 
@@ -408,7 +414,7 @@ def server(inputs, outputs, session):
 
                 plc_buttons.append(
                     ui.input_action_button(f"plc_{i}", hostname,
-                                           class_="button button1", style="width:90%; margin-bottom:8px;")
+                                           class_=class_name, style="width:90%; margin-bottom:8px;")
                 )
 
             if not plc_buttons:
@@ -433,7 +439,7 @@ def server(inputs, outputs, session):
                 class_name += " selected"
             buttons.append(
                 ui.input_action_button(btn_id, resource,
-                                       class_="button button1", style="width:90%; margin-bottom:8px;")
+                                       class_=class_name, style="width:90%; margin-bottom:8px;")
             )
         return ui.tags.div(*buttons)
 
@@ -477,6 +483,26 @@ def server(inputs, outputs, session):
                     "host_select",
                     choices=host_options
                 )
+
+                # Clear resource selection if it no longer exists in the updated config
+                current_host = inputs.host_select()
+                current_resource = selected_resource()
+
+                if current_host != "all" and current_resource is not None:
+                    # Find the host in the new config
+                    host_cfg = next((host for host in config.get('sftp_hosts', [])
+                                     if host.get('hostname') == current_host or
+                                     host.get('ip_address') == current_host), None)
+
+                    # If host exists, check if the resource still exists
+                    if host_cfg:
+                        resources = host_cfg.get('resources', [])
+                        if current_resource not in resources:
+                            # Resource no longer exists, clear selection
+                            selected_resource.set(None)
+
+                # Trigger a refresh of the resource buttons
+                resource_buttons_trigger.set(resource_buttons_trigger() + 1)
 
             except yaml.YAMLError as e:
                 save_status.set(f"Error: Invalid YAML format - {str(e)}")
