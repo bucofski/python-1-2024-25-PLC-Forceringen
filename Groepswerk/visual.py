@@ -185,7 +185,7 @@ app_ui = ui.tags.div(
             ui.tags.div(
                 ui.input_action_button("view_output", "Output", class_="button button1",
                                        style="width:90%; margin-bottom:8px;"),
-                ui.input_action_button("view_database", "Database", class_="button button1",
+                ui.input_action_button("view_config", "Config", class_="button button1",
                                        style="width:90%; margin-bottom:24px;"),
                 style="margin-bottom: 16px;"
             ),
@@ -242,7 +242,7 @@ def server(inputs, outputs, session):
     # Reactive value for output text
     assert session
     terminal_text = reactive.Value("")
-    selected_view = reactive.Value("output")  # "output" or "database"
+    selected_view = reactive.Value("output")  # "output" or "Config"
     selected_resource = reactive.Value(None)
     selected_plc = reactive.Value(None)  # Only when used "all"
 
@@ -254,9 +254,9 @@ def server(inputs, outputs, session):
         print("Selected view is:", selected_view())
 
     @reactive.effect
-    @reactive.event(inputs.view_database)
+    @reactive.event(inputs.view_config)
     def _():
-        selected_view.set("database")
+        selected_view.set("Config")
         print("Selected view is:", selected_view())
 
     @reactive.effect
@@ -327,7 +327,6 @@ def server(inputs, outputs, session):
         captured_output = run_head_and_capture_output(config, selected_host_value)
         terminal_text.set(captured_output or "[No output produced]")
 
-    # Main panel UI switching
     @outputs()
     @render.ui
     def main_panel():
@@ -337,11 +336,44 @@ def server(inputs, outputs, session):
                 ui.tags.h2("Output"),
                 ui.output_text_verbatim("terminal_output", placeholder=True)
             )
-        elif selected_view() == "database":
+        elif selected_view() == "Config":
+            # Load and display the content of plc.yaml for editing
+            with open(yaml_path, "r") as file:
+                yaml_content = file.read()
+
             return ui.tags.div(
-                ui.tags.h2("Database"),
-                ui.tags.p("Database content goes here...")
-                # Add any UI elements for your Database view here
+                ui.tags.h2("PLC Configuration"),
+                # Add style to ensure label appears on top
+                ui.tags.div(
+                    ui.tags.label(
+                        "Edit PLC Configuration:",
+                        **{"for": "yaml_editor"},
+                        style="display: block; margin-bottom: 8px; font-size: 1.1rem;"
+                    ),
+                    ui.input_text_area(
+                        "yaml_editor",
+                        label=None,  # Remove label from component as we're adding it separately
+                        value=yaml_content,
+                        width="100%",
+                        height="500px",
+                        resize="both"
+                    ),
+                    style="width: 90%; max-width: 1200px; margin: 0 auto;"  # Make the frame wider
+                ),
+                ui.tags.div(
+                    ui.input_action_button(
+                        "save_config",
+                        "Save Changes",
+                        class_="button button1",
+                        style="margin-top: 16px;"
+                    ),
+                    # Wrap the output in a div to style it
+                    ui.tags.div(
+                        ui.output_text("save_status_output"),
+                        style="margin-top: 12px; font-weight: bold;"
+                    ),
+                    style="width: 90%; max-width: 1200px; margin: 16px auto 0;"
+                )
             )
         elif selected_view() == "resource":
             return ui.tags.div(
@@ -402,6 +434,52 @@ def server(inputs, outputs, session):
                                        class_="button button1", style="width:90%; margin-bottom:8px;")
             )
         return ui.tags.div(*buttons)
+
+    # Inside the server function
+    save_status = reactive.Value("")
+
+    @reactive.effect
+    @reactive.event(inputs.save_config)
+    def save_yaml_config():
+        try:
+            # Get the content from the text area
+            yaml_content = inputs.yaml_editor()
+
+            # Validate YAML format before saving
+            try:
+                # Check if it's valid YAML
+                test_config = yaml.safe_load(yaml_content)
+
+                # Write to file
+                with open(yaml_path, "w") as file:
+                    file.write(yaml_content)
+
+                # Update save status
+                save_status.set("Configuration saved successfully!")
+
+                # Update the config variable with new content
+                global config, host_options
+                config = test_config
+
+                # Update host options based on the new config
+                host_options = {
+                    "all": "All",
+                    **{
+                        host.get('hostname', host.get('ip_address')): host.get('hostname', host.get('ip_address'))
+                        for host in config.get('sftp_hosts', [])
+                    }
+                }
+
+            except yaml.YAMLError as e:
+                save_status.set(f"Error: Invalid YAML format - {str(e)}")
+
+        except Exception as e:
+            save_status.set(f"Error saving file: {str(e)}")
+
+    @outputs()
+    @render.text
+    def save_status_output():
+        return save_status.get()
 
 
 app = App(app_ui, server)
