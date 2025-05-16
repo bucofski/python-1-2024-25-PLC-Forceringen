@@ -342,38 +342,40 @@ def server(inputs, outputs, session):
                 yaml_content = file.read()
 
             return ui.tags.div(
-                ui.tags.h2("PLC Configuration"),
-                # Add style to ensure label appears on top
+                ui.tags.h2("PLC Configuration"),  # Title
+                # Container for label and text area
                 ui.tags.div(
                     ui.tags.label(
                         "Edit PLC Configuration:",
                         **{"for": "yaml_editor"},
-                        style="display: block; margin-bottom: 8px; font-size: 1.1rem;"
+                        style="display: block; margin-bottom: 8px; font-size: 1.1rem;"  # Label above the text area
                     ),
                     ui.input_text_area(
                         "yaml_editor",
-                        label=None,  # Remove label from component as we're adding it separately
+                        label=None,
                         value=yaml_content,
-                        width="100%",
-                        height="500px",
-                        resize="both"
+                        height="600px",  # Larger height
+                        width="800px",  # Larger width
+                        resize="both"  # Allow resizing in both directions
                     ),
-                    style="width: 90%; max-width: 1200px; margin: 0 auto;"  # Make the frame wider
+                    style="display: flex; flex-direction: column; align-items: center; margin: 0 auto;"
+                    # Center text area
                 ),
+                # Save button container
                 ui.tags.div(
                     ui.input_action_button(
                         "save_config",
                         "Save Changes",
                         class_="button button1",
-                        style="margin-top: 16px;"
+                        style="margin-top: 16px; padding: 10px 20px;"  # Add margin and padding to the button
                     ),
-                    # Wrap the output in a div to style it
                     ui.tags.div(
                         ui.output_text("save_status_output"),
-                        style="margin-top: 12px; font-weight: bold;"
+                        style="margin-top: 12px; font-weight: bold;"  # Status message styling
                     ),
-                    style="width: 90%; max-width: 1200px; margin: 16px auto 0;"
-                )
+                    style="display: flex; flex-direction: column; align-items: center; margin-top: 16px;"
+                ),
+                style="width: 800px; margin: 0 auto; text-align: center;"  # Center the layout with a wider container
             )
         elif selected_view() == "resource":
             return ui.tags.div(
@@ -469,6 +471,12 @@ def server(inputs, outputs, session):
                         for host in config.get('sftp_hosts', [])
                     }
                 }
+
+                # Update the input select component with new options
+                ui.update_select(
+                    "host_select",
+                    choices=host_options
+                )
 
             except yaml.YAMLError as e:
                 save_status.set(f"Error: Invalid YAML format - {str(e)}")
