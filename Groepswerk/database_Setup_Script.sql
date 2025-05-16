@@ -171,18 +171,53 @@ VALUES
     (13, 13);
 
 -- =============================================
--- SAMPLE DATA
+-- SAMPLE DATA FOR TRIGGER
 -- =============================================
 
--- Insert some sample data into resource_bit
+-- Insert sample data for Resource 1
 INSERT INTO resource_bit (resource_id, bit_number, kks, comment, second_comment, value)
 VALUES
-    (1, 'W1000', 'KKS_001', 'Comment 1', 'Second Comment 1', 'Value 1'),
-    (1, 'W1001', 'KKS_002', 'Comment 2', 'Second Comment 2', 'Value 2'),
-    (1, 'W1002', 'KKS_003', 'Comment 3', 'Second Comment 3', 'Value 3');
+    (1, 'W2000', 'KKS_001', 'Common Comment 1', 'Second Common Comment 1', 'Value A'),
+    (1, 'W2001', 'KKS_002', 'Common Comment 2', 'Second Common Comment 2', 'Value B'),
+    (1, 'W3000', 'KKS_003', 'Resource 1 - Unique Comment 1', 'Second R1 Comment 1', 'Value C'),
+    (1, 'W3001', 'KKS_004', 'Resource 1 - Unique Comment 2', 'Second R1 Comment 2', 'Value D'),
+    (1, 'W3002', 'KKS_005', 'Resource 1 - Unique Comment 3', 'Second R1 Comment 3', 'Value E');
 
--- Insert some sample data into bit_force_reason
-INSERT INTO bit_force_reason (bit_id, reason, forced_by)
+-- Insert sample data for Resource 2
+INSERT INTO resource_bit (resource_id, bit_number, kks, comment, second_comment, value)
 VALUES
-    (1, 'Testing Force Reason', 'Admin'),
-    (2, 'Maintenance Reason', 'Admin');
+    (2, 'W2000', 'KKS_006', 'Common Comment 1', 'Second Common Comment 1', 'Value F'),
+    (2, 'W2001', 'KKS_007', 'Common Comment 2', 'Second Common Comment 2', 'Value G'),
+    (2, 'W3003', 'KKS_008', 'Resource 2 - Unique Comment 1', 'Second R2 Comment 1', 'Value H'),
+    (2, 'W3004', 'KKS_009', 'Resource 2 - Unique Comment 2', 'Second R2 Comment 2', 'Value I'),
+    (2, 'W3005', 'KKS_010', 'Resource 2 - Unique Comment 3', 'Second R2 Comment 3', 'Value J');
+
+-- Insert sample data for Resource 3
+INSERT INTO resource_bit (resource_id, bit_number, kks, comment, second_comment, value)
+VALUES
+    (3, 'W2000', 'KKS_011', 'Common Comment 1', 'Second Common Comment 1', 'Value K'),
+    (3, 'W2001', 'KKS_012', 'Common Comment 2', 'Second Common Comment 2', 'Value L'),
+    (3, 'W3006', 'KKS_013', 'Resource 3 - Unique Comment 1', 'Second R3 Comment 1', 'Value M'),
+    (3, 'W3007', 'KKS_014', 'Resource 3 - Unique Comment 2', 'Second R3 Comment 2', 'Value N'),
+    (3, 'W3008', 'KKS_015', 'Resource 3 - Unique Comment 3', 'Second R3 Comment 3', 'Value O');
+
+SELECT
+    r.resource_name AS resource,
+    rb.bit_number,
+    rb.kks,
+    rb.comment,
+    rb.second_comment,
+    rb.value,
+    rb.Forced_Status
+FROM
+    resource_bit rb
+JOIN
+    resource r ON rb.resource_id = r.resource_id
+JOIN
+    plc_resource pr ON r.resource_id = pr.resource_id
+JOIN
+    plc p ON pr.plc_id = p.plc_id
+WHERE
+    p.plc_name = 'BTEST'
+ORDER BY
+    r.resource_name, rb.bit_number;
