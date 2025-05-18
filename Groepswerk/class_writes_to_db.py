@@ -58,8 +58,10 @@ import psycopg2
 #                 for row in processed_list:
 #                     cur.execute(upsert_sql, row)
 
+
 import psycopg2
 from psycopg2 import sql
+import yaml
 
 
 class BitDatabaseManager:
@@ -92,6 +94,7 @@ class BitDatabaseManager:
     def add_bit(self, resource_name, bit_number, kks, comment=None, second_comment=None, value=None):
         """
         Add a new bit to the resource_bit table or update if it already exists.
+        All added or updated bits will have force_Active set to True.
 
         Parameters:
         - resource_name: The name of the resource
@@ -107,6 +110,20 @@ class BitDatabaseManager:
         conn = self.connect()
 
         try:
+            # Truncate string values to respect database column limits
+            if isinstance(resource_name, str) and len(resource_name) > 50:
+                resource_name = resource_name[:50]
+            if isinstance(bit_number, str) and len(bit_number) > 50:
+                bit_number = bit_number[:50]
+            if isinstance(kks, str) and len(kks) > 50:
+                kks = kks[:50]
+            if isinstance(comment, str) and len(comment) > 50:
+                comment = comment[:50]
+            if isinstance(second_comment, str) and len(second_comment) > 50:
+                second_comment = second_comment[:50]
+            if isinstance(value, str) and len(value) > 50:
+                value = value[:50]
+
             with conn.cursor() as cursor:
                 # First, get the resource_id from the resource name
                 cursor.execute(
@@ -114,10 +131,6 @@ class BitDatabaseManager:
                     (resource_name,)
                 )
                 result = cursor.fetchone()
-
-                if not result:
-                    raise ValueError(f"Resource '{resource_name}' not found in the database")
-
                 resource_id = result[0]
 
                 # Check if the bit already exists
@@ -133,37 +146,43 @@ class BitDatabaseManager:
                 existing_bit = cursor.fetchone()
 
                 if existing_bit:
-                    # Update existing bit
+                    # Update existing bit and set force_Active to True
                     cursor.execute(
                         """
                         UPDATE resource_bit
                         SET kks            = %s,
                             comment        = %s,
                             second_comment = %s,
-                            value          = %s
+                            value          = %s,
+                            force_Active   = TRUE
                         WHERE resource_id = %s
                           AND bit_number = %s RETURNING bit_id
                         """,
                         (kks, comment, second_comment, value, resource_id, bit_number)
                     )
                     bit_id = cursor.fetchone()[0]
+                    print(f"Updated existing bit: {bit_number} in resource {resource_name}")
                 else:
-                    # Insert new bit
+                    # Insert new bit with force_Active set to True
+                    print(f"Inserting new bit: {bit_number} in resource {resource_name}")
                     cursor.execute(
                         """
                         INSERT INTO resource_bit
-                            (resource_id, bit_number, kks, comment, second_comment, value)
-                        VALUES (%s, %s, %s, %s, %s, %s) RETURNING bit_id
+                        (resource_id, bit_number, kks, comment, second_comment, value, force_Active)
+                        VALUES (%s, %s, %s, %s, %s, %s, TRUE) RETURNING bit_id
                         """,
                         (resource_id, bit_number, kks, comment, second_comment, value)
                     )
                     bit_id = cursor.fetchone()[0]
+                    print(f"Added new bit: {bit_number} to resource {resource_name}")
 
                 conn.commit()
                 return bit_id
 
         except Exception as e:
             conn.rollback()
+            print(f"Error in add_bit: {e}")
+            print(f"SQL state: {e.pgcode if hasattr(e, 'pgcode') else 'unknown'}")
             raise e
 
     def get_bit(self, resource_name, bit_number):
@@ -183,7 +202,14 @@ class BitDatabaseManager:
             with conn.cursor() as cursor:
                 cursor.execute(
                     """
-                    SELECT rb.bit_id, rb.bit_number, rb.kks, rb.comment, rb.second_comment, rb.value, r.resource_name
+                    SELECT rb.bit_id,
+                           rb.bit_number,
+                           rb.kks,
+                           rb.comment,
+                           rb.second_comment,
+                           rb.value,
+                           r.resource_name,
+                           rb.force_Active
                     FROM resource_bit rb
                              JOIN resource r ON rb.resource_id = r.resource_id
                     WHERE r.resource_name = %s
@@ -203,51 +229,345 @@ class BitDatabaseManager:
                     'comment': result[3],
                     'second_comment': result[4],
                     'value': result[5],
-                    'resource_name': result[6]
+                    'resource_name': result[6],
+                    'force_active': result[7]
                 }
 
         except Exception as e:
+            print(f"Error in get_bit: {e}")
             raise e
 
-    def add_force_reason(self, resource_name, bit_number, reason, forced_by=None):
+    def reset_all_force_active(self):
         """
-        Add a force reason for a bit.
-
-        Parameters:
-        - resource_name: The name of the resource
-        - bit_number: The bit identifier
-        - reason: The reason for forcing the bit
-        - forced_by: Who forced the bit (optional)
+        Reset all force_Active flags to False in the database.
+        This can be used before a batch operation to start with a clean state.
 
         Returns:
-        - The ID of the created force reason entry
+        - Number of records updated
         """
         conn = self.connect()
 
         try:
             with conn.cursor() as cursor:
-                # Get the bit_id
-                bit = self.get_bit(resource_name, bit_number)
-
-                if not bit:
-                    raise ValueError(f"Bit '{bit_number}' in resource '{resource_name}' not found")
-
-                # Insert force reason
                 cursor.execute(
                     """
-                    INSERT INTO bit_force_reason (bit_id, reason, forced_by)
-                    VALUES (%s, %s, %s) RETURNING force_id
-                    """,
-                    (bit['bit_id'], reason, forced_by)
+                    UPDATE resource_bit
+                    SET force_Active = FALSE
+                    WHERE force_Active = TRUE
+                    """
                 )
-                force_id = cursor.fetchone()[0]
-
+                updated_count = cursor.rowcount
                 conn.commit()
-                return force_id
+                return updated_count
 
         except Exception as e:
             conn.rollback()
-            raise e
+            print(f"Error resetting force_Active flags: {e}")
+            return 0
+
+    def deactivate_bits_not_in_list(self, active_bit_list, resource_name=None):
+        """
+        Set force_Active = FALSE for all bits that are not in the provided list.
+
+        Parameters:
+        - active_bit_list: List of tuples (resource_name, bit_number) that should remain active
+        - resource_name: Optional resource to limit the operation to
+
+        Returns:
+        - Number of records deactivated
+        """
+        if not active_bit_list:
+            print("No active bits provided, skipping deactivation")
+            return 0
+
+        conn = self.connect()
+
+        try:
+            with conn.cursor() as cursor:
+                # Create a temporary table to hold the active bits
+                cursor.execute(
+                    "CREATE TEMPORARY TABLE temp_active_bits (resource_name VARCHAR(100), bit_number VARCHAR(100))")
+
+                # Insert the active bits into the temporary table
+                for resource, bit in active_bit_list:
+                    cursor.execute(
+                        "INSERT INTO temp_active_bits (resource_name, bit_number) VALUES (%s, %s)",
+                        (resource, bit)
+                    )
+
+                # Construct the SQL to update bits
+                sql = """
+                      UPDATE resource_bit rb
+                      SET force_Active = FALSE FROM resource r
+                      WHERE rb.resource_id = r.resource_id
+                        AND rb.force_Active = TRUE
+                        AND NOT EXISTS (
+                          SELECT 1 FROM temp_active_bits tab
+                          WHERE tab.resource_name = r.resource_name
+                        AND tab.bit_number = rb.bit_number
+                          )
+                      """
+
+                # Add resource filter if specified
+                if resource_name:
+                    sql += " AND r.resource_name = %s"
+                    cursor.execute(sql, (resource_name,))
+                else:
+                    cursor.execute(sql)
+
+                deactivated_count = cursor.rowcount
+
+                # Clean up the temporary table
+                cursor.execute("DROP TABLE temp_active_bits")
+
+                conn.commit()
+                print(f"Deactivated {deactivated_count} bits that were not in the import file")
+                return deactivated_count
+
+        except Exception as e:
+            conn.rollback()
+            print(f"Error deactivating bits: {e}")
+            return 0
+
+    def import_from_text_file(self, file_path, default_resource='NIET'):
+        """
+        Read data from a text file and import it into the database.
+
+        Expected format: Each line contains a Python dictionary with fields like
+        name_id, KKS, Comment, Second_comment, Value, etc.
+
+        Parameters:
+        - file_path: Path to the text file
+        - default_resource: Default resource name to use if not specified in data
+
+        Returns:
+        - Number of records successfully imported
+        """
+        records_imported = 0
+        updated_bits = []  # Track which bits are updated/added
+
+        try:
+            print(f"Opening file: {file_path}")
+            with open(file_path, 'r') as file:
+                lines = file.readlines()
+                line_count = len(lines)
+
+            print(f"File contains {line_count} lines")
+
+            # Process each line in the file
+            for line_num, line in enumerate(lines, 1):
+                line = line.strip()
+
+                # Skip empty lines or comments
+                if not line or line.startswith('#'):
+                    continue
+
+                # Special handling for the first line
+                is_first_line = (line_num == 1)
+
+                print(f"Processing line {line_num}/{line_count}: {line[:50]}...")
+                try:
+                    # Parse the line as a Python dictionary
+                    # Use safe parsing with additional safety checks
+                    try:
+                        data = eval(line)  # Note: eval can be unsafe in production environments
+                        if not isinstance(data, dict):
+                            print(f"Line {line_num} does not evaluate to a dictionary: {type(data)}")
+                            continue
+                    except SyntaxError as se:
+                        print(f"Line {line_num}: Syntax error in line: {se}")
+                        continue
+                    except Exception as e:
+                        print(f"Line {line_num}: Error parsing line: {e}")
+                        continue
+
+                    # Extract values from the dictionary
+                    bit_number = data.get('name_id')
+                    kks = data.get('KKS')
+                    comment = data.get('Comment')
+                    second_comment = data.get('Second_comment')
+                    value = data.get('Value')
+
+                    # Debug output
+                    print(f"  Extracted values - bit: {bit_number}, kks: {kks}, value: {value}")
+
+                    # Get resource name - use 'resource' field if available or default
+                    resource_name = data.get('resource')
+
+                    # For the first line, if resource is not specified and KKS starts with "House",
+                    # use "House" as the resource
+                    if is_first_line and not resource_name and kks and kks.startswith('House.'):
+                        resource_name = 'House'
+                        print(f"  First line: KKS starts with 'House.', using 'House' as resource")
+                    elif not resource_name:
+                        resource_name = default_resource
+                        print(f"  Missing resource name, using default: {default_resource}")
+
+                    # Validate required fields
+                    if not bit_number:
+                        print(f"Line {line_num}: Missing bit number, skipping")
+                        continue
+                    if not kks:
+                        print(f"Line {line_num}: Missing KKS, skipping")
+                        continue
+
+                    # Convert 'None' strings to None (Python null)
+                    if isinstance(comment, str) and comment == 'None':
+                        comment = None
+                    if isinstance(second_comment, str) and second_comment == 'None':
+                        second_comment = None
+                    if isinstance(value, str) and value == 'None':
+                        value = None
+
+                    # Convert value to string if it's not already
+                    if value is not None and not isinstance(value, str):
+                        value = str(value)
+
+                    # Add the bit to the database
+                    try:
+                        bit_id = self.add_bit(
+                            resource_name=resource_name,
+                            bit_number=bit_number,
+                            kks=kks,
+                            comment=comment,
+                            second_comment=second_comment,
+                            value=value
+                        )
+
+                        # Keep track of this bit being updated
+                        updated_bits.append((resource_name, bit_number))
+
+                        records_imported += 1
+                        print(f"  Successfully imported bit: {resource_name}, {bit_number}, {kks}")
+                    except Exception as e:
+                        print(f"Error adding bit to database: {str(e)}")
+                        raise
+
+                except Exception as e:
+                    print(f"Error importing line {line_num}: {str(e)}")
+                    print(f"Line content: {line}")
+
+            # Now set force_Active = FALSE for all bits that weren't in the import file
+            if updated_bits:
+                self.deactivate_bits_not_in_list(updated_bits, default_resource)
+            else:
+                print("No bits were imported, skipping deactivation step")
+
+            return records_imported
+
+        except FileNotFoundError:
+            print(f"File not found: {file_path}")
+            return 0
+        except Exception as e:
+            print(f"Error reading file: {str(e)}")
+            return 0
+
+    def get_active_bits(self, resource_name=None):
+        """
+        Get all bits with force_Active set to True.
+
+        Parameters:
+        - resource_name: Optional filter by resource name
+
+        Returns:
+        - List of dictionaries with active bit details
+        """
+        conn = self.connect()
+
+        try:
+            with conn.cursor() as cursor:
+                if resource_name:
+                    # Get resource_id first
+                    cursor.execute(
+                        "SELECT resource_id FROM resource WHERE resource_name = %s",
+                        (resource_name,)
+                    )
+                    result = cursor.fetchone()
+
+                    if not result:
+                        print(f"Resource '{resource_name}' not found")
+                        return []
+
+                    resource_id = result[0]
+
+                    # Query bits filtered by resource and force_Active
+                    cursor.execute(
+                        """
+                        SELECT rb.bit_id,
+                               rb.bit_number,
+                               rb.kks,
+                               rb.comment,
+                               rb.second_comment,
+                               rb.value,
+                               r.resource_name
+                        FROM resource_bit rb
+                                 JOIN resource r ON rb.resource_id = r.resource_id
+                        WHERE rb.force_Active = TRUE
+                          AND rb.resource_id = %s
+                        ORDER BY rb.bit_number
+                        """,
+                        (resource_id,)
+                    )
+                else:
+                    # Query all active bits across all resources
+                    cursor.execute(
+                        """
+                        SELECT rb.bit_id,
+                               rb.bit_number,
+                               rb.kks,
+                               rb.comment,
+                               rb.second_comment,
+                               rb.value,
+                               r.resource_name
+                        FROM resource_bit rb
+                                 JOIN resource r ON rb.resource_id = r.resource_id
+                        WHERE rb.force_Active = TRUE
+                        ORDER BY r.resource_name, rb.bit_number
+                        """
+                    )
+
+                results = cursor.fetchall()
+                active_bits = []
+
+                for result in results:
+                    active_bits.append({
+                        'bit_id': result[0],
+                        'bit_number': result[1],
+                        'kks': result[2],
+                        'comment': result[3],
+                        'second_comment': result[4],
+                        'value': result[5],
+                        'resource_name': result[6]
+                    })
+
+                return active_bits
+
+        except Exception as e:
+            print(f"Error retrieving active bits: {e}")
+            return []
+
+    def list_resources(self):
+        """List all available resources in the database."""
+        conn = self.connect()
+
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT resource_id, resource_name FROM resource")
+                resources = cursor.fetchall()
+
+                if not resources:
+                    print("No resources found in the database.")
+                    return []
+
+                print("Available resources:")
+                for resource_id, resource_name in resources:
+                    print(f"  ID: {resource_id}, Name: {resource_name}")
+
+                return resources
+
+        except Exception as e:
+            print(f"Error listing resources: {str(e)}")
+            return []
 
 
 # Example usage:
@@ -264,25 +584,30 @@ if __name__ == "__main__":
     bit_manager = BitDatabaseManager(db_params)
 
     try:
-        # Add a new bit
-        bit_id = bit_manager.add_bit(
-            resource_name='NIET',
-            bit_number='W00873',
-            kks='PilootTD.Interlock.NewBit',
-            comment='New test bit',
-            second_comment='[TD2,TDS,1202]',
-            value='1'
-        )
-        print(f"Added/updated bit with ID: {bit_id}")
+        # List available resources to verify initialization
+        print("\nChecking available resources in the database:")
+        bit_manager.list_resources()
 
-        # Add a force reason
-        force_id = bit_manager.add_force_reason(
-            resource_name='NIET',
-            bit_number='W00873',
-            reason='Testing purposes',
-            forced_by='Test User'
-        )
-        print(f"Added force reason with ID: {force_id}")
+        # Reset all force_Active flags to start with a clean slate
+        print("\nResetting all force_Active flags...")
+        reset_count = bit_manager.reset_all_force_active()
+        print(f"Reset {reset_count} bits to force_Active = FALSE")
+
+        # Import data from text.txt file - will set force_Active = TRUE for imported bits
+        # and force_Active = FALSE for all others in that resource
+        file_path = 'test.txt'
+        print(f"\nImporting data from text file {file_path}...")
+        text_imported_count = bit_manager.import_from_text_file(file_path)
+        print(f"Successfully imported {text_imported_count} records from {file_path}")
+
+        # Get and display active bits
+        print("\nActive bits after import:")
+        active_bits = bit_manager.get_active_bits()
+        if active_bits:
+            for bit in active_bits:
+                print(f"{bit['resource_name']}: {bit['bit_number']} - {bit['kks']} = {bit['value']}")
+        else:
+            print("No active bits found after import!")
 
     except Exception as e:
         print(f"Error: {e}")
