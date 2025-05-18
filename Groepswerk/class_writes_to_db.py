@@ -62,6 +62,7 @@ import psycopg2
 import psycopg2
 from psycopg2 import sql
 import yaml
+from datetime import datetime
 
 
 class BitDatabaseManager:
@@ -91,10 +92,12 @@ class BitDatabaseManager:
         if self.conn and not self.conn.closed:
             self.conn.close()
 
-    def add_bit(self, resource_name, bit_number, kks, comment=None, second_comment=None, value=None):
+    def add_bit(self, resource_name, bit_number, kks, comment=None, second_comment=None, value=None, forced_by=None,
+                reason=None):
         """
         Add a new bit to the resource_bit table or update if it already exists.
         All added or updated bits will have force_Active set to True.
+        Also records the forcing reason if provided.
 
         Parameters:
         - resource_name: The name of the resource
@@ -103,6 +106,8 @@ class BitDatabaseManager:
         - comment: Optional comment about the bit
         - second_comment: Optional secondary comment
         - value: Optional value for the bit
+        - forced_by: Who is forcing this bit (optional)
+        - reason: Why this bit is being forced (optional)
 
         Returns:
         - The ID of the inserted or updated bit
@@ -131,12 +136,15 @@ class BitDatabaseManager:
                     (resource_name,)
                 )
                 result = cursor.fetchone()
+                if not result:
+                    raise ValueError(f"Resource '{resource_name}' not found")
+
                 resource_id = result[0]
 
                 # Check if the bit already exists
                 cursor.execute(
                     """
-                    SELECT bit_id
+                    SELECT bit_id, force_Active
                     FROM resource_bit
                     WHERE resource_id = %s
                       AND bit_number = %s
@@ -146,6 +154,9 @@ class BitDatabaseManager:
                 existing_bit = cursor.fetchone()
 
                 if existing_bit:
+                    bit_id = existing_bit[0]
+                    was_active = existing_bit[1]
+
                     # Update existing bit and set force_Active to True
                     cursor.execute(
                         """
@@ -162,6 +173,10 @@ class BitDatabaseManager:
                     )
                     bit_id = cursor.fetchone()[0]
                     print(f"Updated existing bit: {bit_number} in resource {resource_name}")
+
+                    # If this bit wasn't active before but now is and we have a reason, record it
+                    if not was_active and reason:
+                        self._record_force_reason(cursor, bit_id, reason, forced_by)
                 else:
                     # Insert new bit with force_Active set to True
                     print(f"Inserting new bit: {bit_number} in resource {resource_name}")
@@ -176,6 +191,10 @@ class BitDatabaseManager:
                     bit_id = cursor.fetchone()[0]
                     print(f"Added new bit: {bit_number} to resource {resource_name}")
 
+                    # Record the reason for forcing this bit if provided
+                    if reason:
+                        self._record_force_reason(cursor, bit_id, reason, forced_by)
+
                 conn.commit()
                 return bit_id
 
@@ -184,6 +203,143 @@ class BitDatabaseManager:
             print(f"Error in add_bit: {e}")
             print(f"SQL state: {e.pgcode if hasattr(e, 'pgcode') else 'unknown'}")
             raise e
+
+    def _record_force_reason(self, cursor, bit_id, reason, forced_by=None):
+        """
+        Record why a bit was forced in the bit_force_reason table.
+
+        Parameters:
+        - cursor: Database cursor
+        - bit_id: ID of the bit being forced
+        - reason: Reason for forcing
+        - forced_by: Who is forcing this bit
+        """
+        if forced_by:
+            cursor.execute(
+                """
+                INSERT INTO bit_force_reason
+                    (bit_id, reason, forced_by, forced_at)
+                VALUES (%s, %s, %s, NOW())
+                """,
+                (bit_id, reason, forced_by)
+            )
+        else:
+            cursor.execute(
+                """
+                INSERT INTO bit_force_reason
+                    (bit_id, reason, forced_at)
+                VALUES (%s, %s, NOW())
+                """,
+                (bit_id, reason)
+            )
+        print(f"Recorded force reason for bit_id {bit_id}: {reason}")
+
+    def deactivate_bit(self, resource_name, bit_number, deforced_by=None, reason=None):
+        """
+        Set force_Active = FALSE for a specific bit and record deforce timestamp.
+
+        Parameters:
+        - resource_name: Name of the resource
+        - bit_number: Bit identifier
+        - deforced_by: Who is deforcing this bit
+        - reason: Reason for deforcing
+
+        Returns:
+        - True if successful, False otherwise
+        """
+        conn = self.connect()
+
+        try:
+            with conn.cursor() as cursor:
+                # Get resource_id
+                cursor.execute(
+                    "SELECT resource_id FROM resource WHERE resource_name = %s",
+                    (resource_name,)
+                )
+                result = cursor.fetchone()
+                if not result:
+                    print(f"Resource '{resource_name}' not found")
+                    return False
+
+                resource_id = result[0]
+
+                # Get bit_id and current status
+                cursor.execute(
+                    """
+                    SELECT bit_id, force_Active
+                    FROM resource_bit
+                    WHERE resource_id = %s
+                      AND bit_number = %s
+                    """,
+                    (resource_id, bit_number)
+                )
+                result = cursor.fetchone()
+                if not result:
+                    print(f"Bit '{bit_number}' not found in resource '{resource_name}'")
+                    return False
+
+                bit_id, is_active = result
+
+                # Only update deforced_at if the bit is currently active
+                if is_active:
+                    # Deactivate the bit
+                    cursor.execute(
+                        """
+                        UPDATE resource_bit
+                        SET force_Active = FALSE
+                        WHERE bit_id = %s
+                        """,
+                        (bit_id,)
+                    )
+
+                    # Update the most recent force record with a deforced timestamp
+                    cursor.execute(
+                        """
+                        UPDATE bit_force_reason
+                        SET deforced_at = NOW()
+                        WHERE force_id = (SELECT force_id
+                                          FROM bit_force_reason
+                                          WHERE bit_id = %s
+                                            AND deforced_at IS NULL
+                                          ORDER BY forced_at DESC
+                            LIMIT 1
+                            )
+                        """,
+                        (bit_id,)
+                    )
+
+                    # If we have new reason info for deforcing, add it
+                    if reason:
+                        if deforced_by:
+                            reason_text = f"Deforced by {deforced_by}: {reason}"
+                        else:
+                            reason_text = f"Deforced: {reason}"
+
+                        cursor.execute(
+                            """
+                            UPDATE bit_force_reason
+                            SET reason = reason || ' | ' || %s
+                            WHERE force_id = (SELECT force_id
+                                              FROM bit_force_reason
+                                              WHERE bit_id = %s
+                                              ORDER BY forced_at DESC
+                                LIMIT 1
+                                )
+                            """,
+                            (reason_text, bit_id)
+                        )
+
+                    print(f"Deactivated bit: {bit_number} in resource {resource_name}")
+                else:
+                    print(f"Bit '{bit_number}' in resource '{resource_name}' is already inactive")
+
+                conn.commit()
+                return True
+
+        except Exception as e:
+            conn.rollback()
+            print(f"Error deactivating bit: {e}")
+            return False
 
     def get_bit(self, resource_name, bit_number):
         """
@@ -237,10 +393,63 @@ class BitDatabaseManager:
             print(f"Error in get_bit: {e}")
             raise e
 
-    def reset_all_force_active(self):
+    def get_bit_history(self, resource_name, bit_number):
+        """
+        Retrieve force history for a bit.
+
+        Parameters:
+        - resource_name: The name of the resource
+        - bit_number: The bit identifier
+
+        Returns:
+        - List of force history records
+        """
+        conn = self.connect()
+
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    SELECT bfr.force_id,
+                           bfr.reason,
+                           bfr.forced_by,
+                           bfr.forced_at,
+                           bfr.deforced_at
+                    FROM bit_force_reason bfr
+                             JOIN resource_bit rb ON bfr.bit_id = rb.bit_id
+                             JOIN resource r ON rb.resource_id = r.resource_id
+                    WHERE r.resource_name = %s
+                      AND rb.bit_number = %s
+                    ORDER BY bfr.forced_at DESC
+                    """,
+                    (resource_name, bit_number)
+                )
+
+                results = cursor.fetchall()
+                history = []
+
+                for row in results:
+                    history.append({
+                        'force_id': row[0],
+                        'reason': row[1],
+                        'forced_by': row[2],
+                        'forced_at': row[3],
+                        'deforced_at': row[4]
+                    })
+
+                return history
+
+        except Exception as e:
+            print(f"Error getting bit history: {e}")
+            return []
+
+    def reset_all_force_active(self, deforce_reason="Batch deforce operation"):
         """
         Reset all force_Active flags to False in the database.
         This can be used before a batch operation to start with a clean state.
+
+        Parameters:
+        - deforce_reason: Reason for deforcing all bits
 
         Returns:
         - Number of records updated
@@ -249,6 +458,21 @@ class BitDatabaseManager:
 
         try:
             with conn.cursor() as cursor:
+                # First, update all force reasons to include deforce timestamp
+                cursor.execute(
+                    """
+                    UPDATE bit_force_reason
+                    SET deforced_at = NOW(),
+                        reason      = reason || ' | ' || %s
+                    WHERE deforced_at IS NULL
+                      AND bit_id IN (SELECT bit_id
+                                     FROM resource_bit
+                                     WHERE force_Active = TRUE)
+                    """,
+                    (deforce_reason,)
+                )
+
+                # Then, set all active bits to inactive
                 cursor.execute(
                     """
                     UPDATE resource_bit
@@ -265,13 +489,14 @@ class BitDatabaseManager:
             print(f"Error resetting force_Active flags: {e}")
             return 0
 
-    def deactivate_bits_not_in_list(self, active_bit_list, resource_name=None):
+    def deactivate_bits_not_in_list(self, active_bit_list, resource_name=None, deforce_reason="Not included in import"):
         """
         Set force_Active = FALSE for all bits that are not in the provided list.
 
         Parameters:
         - active_bit_list: List of tuples (resource_name, bit_number) that should remain active
         - resource_name: Optional resource to limit the operation to
+        - deforce_reason: Reason for deforcing bits
 
         Returns:
         - Number of records deactivated
@@ -284,6 +509,55 @@ class BitDatabaseManager:
 
         try:
             with conn.cursor() as cursor:
+                # Get the bit_ids that will be deforced
+                if resource_name:
+                    cursor.execute(
+                        """
+                        SELECT rb.bit_id
+                        FROM resource_bit rb
+                                 JOIN resource r ON rb.resource_id = r.resource_id
+                        WHERE rb.force_Active = TRUE
+                          AND r.resource_name = %s
+                          AND NOT EXISTS (SELECT 1
+                                          FROM (SELECT unnest(%s) AS res_name, unnest(%s) AS bit_num) AS active_bits
+                                          WHERE active_bits.res_name = r.resource_name
+                                            AND active_bits.bit_num = rb.bit_number)
+                        """,
+                        (resource_name,
+                         [res for res, _ in active_bit_list],
+                         [bit for _, bit in active_bit_list])
+                    )
+                else:
+                    cursor.execute(
+                        """
+                        SELECT rb.bit_id
+                        FROM resource_bit rb
+                                 JOIN resource r ON rb.resource_id = r.resource_id
+                        WHERE rb.force_Active = TRUE
+                          AND NOT EXISTS (SELECT 1
+                                          FROM (SELECT unnest(%s) AS res_name, unnest(%s) AS bit_num) AS active_bits
+                                          WHERE active_bits.res_name = r.resource_name
+                                            AND active_bits.bit_num = rb.bit_number)
+                        """,
+                        ([res for res, _ in active_bit_list],
+                         [bit for _, bit in active_bit_list])
+                    )
+
+                bit_ids_to_deforce = [row[0] for row in cursor.fetchall()]
+
+                # Update force_reason records for these bits
+                if bit_ids_to_deforce:
+                    cursor.execute(
+                        """
+                        UPDATE bit_force_reason
+                        SET deforced_at = NOW(),
+                            reason      = reason || ' | ' || %s
+                        WHERE deforced_at IS NULL
+                          AND bit_id = ANY (%s)
+                        """,
+                        (deforce_reason, bit_ids_to_deforce)
+                    )
+
                 # Create a temporary table to hold the active bits
                 cursor.execute(
                     "CREATE TEMPORARY TABLE temp_active_bits (resource_name VARCHAR(100), bit_number VARCHAR(100))")
@@ -329,7 +603,7 @@ class BitDatabaseManager:
             print(f"Error deactivating bits: {e}")
             return 0
 
-    def import_from_text_file(self, file_path, default_resource='NIET'):
+    def import_from_text_file(self, file_path, default_resource='NIET', forced_by=None, reason="Imported from file"):
         """
         Read data from a text file and import it into the database.
 
@@ -339,6 +613,8 @@ class BitDatabaseManager:
         Parameters:
         - file_path: Path to the text file
         - default_resource: Default resource name to use if not specified in data
+        - forced_by: Who is importing this data
+        - reason: Reason for forcing bits
 
         Returns:
         - Number of records successfully imported
@@ -423,6 +699,9 @@ class BitDatabaseManager:
                     if value is not None and not isinstance(value, str):
                         value = str(value)
 
+                    # Create line-specific reason
+                    line_reason = f"{reason} (line {line_num})"
+
                     # Add the bit to the database
                     try:
                         bit_id = self.add_bit(
@@ -431,7 +710,9 @@ class BitDatabaseManager:
                             kks=kks,
                             comment=comment,
                             second_comment=second_comment,
-                            value=value
+                            value=value,
+                            forced_by=forced_by,
+                            reason=line_reason
                         )
 
                         # Keep track of this bit being updated
@@ -449,7 +730,11 @@ class BitDatabaseManager:
 
             # Now set force_Active = FALSE for all bits that weren't in the import file
             if updated_bits:
-                self.deactivate_bits_not_in_list(updated_bits, default_resource)
+                self.deactivate_bits_not_in_list(
+                    updated_bits,
+                    default_resource,
+                    f"Not included in import from {file_path}"
+                )
             else:
                 print("No bits were imported, skipping deactivation step")
 
@@ -590,14 +875,18 @@ if __name__ == "__main__":
 
         # Reset all force_Active flags to start with a clean slate
         print("\nResetting all force_Active flags...")
-        reset_count = bit_manager.reset_all_force_active()
+        reset_count = bit_manager.reset_all_force_active("Starting fresh import run")
         print(f"Reset {reset_count} bits to force_Active = FALSE")
 
         # Import data from text.txt file - will set force_Active = TRUE for imported bits
         # and force_Active = FALSE for all others in that resource
         file_path = 'test.txt'
         print(f"\nImporting data from text file {file_path}...")
-        text_imported_count = bit_manager.import_from_text_file(file_path)
+        text_imported_count = bit_manager.import_from_text_file(
+            file_path,
+            forced_by="System Import",
+            reason="Scheduled import"
+        )
         print(f"Successfully imported {text_imported_count} records from {file_path}")
 
         # Get and display active bits
