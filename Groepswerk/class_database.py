@@ -80,7 +80,6 @@ class DatabaseSearcher:
             except pyodbc.Error as e:
                 print(f"Database query error: {e}")
                 continue  # Try remaining batches
-
         return processed_results
 
 

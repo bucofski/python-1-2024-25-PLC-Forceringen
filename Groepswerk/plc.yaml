@@ -37,6 +37,7 @@ sftp_hosts:
       - "WT1"
     db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
 
+
 ### SQL_SERVER info
 # database views
 database:
