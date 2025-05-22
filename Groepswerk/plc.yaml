@@ -38,13 +38,3 @@ sftp_hosts:
       - "CHIEL"
     db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
 
-
-### SQL_SERVER info
-# database views
-database:
-  connection:
-    host: "localhost"
-    port: 5432
-    database: "your_database_name"
-    user: "your_username"
-    password: "your_password"

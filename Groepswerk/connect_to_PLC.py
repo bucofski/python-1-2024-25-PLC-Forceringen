@@ -95,7 +95,15 @@ if __name__ == "__main__":
     username = selected_host['username']
     password = selected_host['password']
     remote_files = selected_host.get('remote_files', [])
-    local_base_dir = selected_host.get('local_base_dir', '')
+
+    # Get local_base_dir from the root config if not present in host config
+    local_base_dir = selected_host.get('local_base_dir') or config.get('local_base_dir')
+
+    # If still empty, create a default based on the hostname
+    if not local_base_dir:
+        hostname_dir = selected_host.get('hostname', 'unknown_host')
+        local_base_dir = os.path.abspath(f"downloads/{hostname_dir}")
+        print(f"No local_base_dir specified, using {local_base_dir}")
 
     print(f"\nConnecting to {hostname} ({selected_host.get('hostname')})...")
     client = SFTPClient(

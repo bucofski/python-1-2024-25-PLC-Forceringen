@@ -5,9 +5,9 @@ from class_making_querry import FileReader, DataProcessor
 
 
 class DatabaseSearcher:
-    def __init__(self, db_path):
+    def __init__(self, dbs_path):
         """Initialize the database connection string and connection to None."""
-        self.db_path = db_path
+        self.db_path = dbs_path
         self.connection_string = (
             r"DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};"
             f"DBQ={self.db_path};"
@@ -54,8 +54,8 @@ class DatabaseSearcher:
             query = query_template.format(placeholders=placeholders)
             try:
                 cursor.execute(query, batch)
-                results = cursor.fetchall()
-                for row in results:
+                results_ = cursor.fetchall()
+                for row in results_:
                     name_mnemo = (row[1] or "").strip()
                     mnemo_s = (
                         f"{(row[2] or '').strip()}.{(row[3] or '').strip()}.{(row[4] or '').strip()}"
@@ -80,7 +80,6 @@ class DatabaseSearcher:
             except pyodbc.Error as e:
                 print(f"Database query error: {e}")
                 continue  # Try remaining batches
-
         return processed_results
 
 
@@ -104,5 +103,5 @@ if __name__ == "__main__":
 
     end = datetime.now()
     print(f"Time taken: {(end - start).total_seconds()} seconds")
-    for row in results:
-        print(row)
+    for row_ in results:
+        print(row_)

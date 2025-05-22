@@ -2,9 +2,9 @@ import sys
 import io
 import yaml
 import os
-from shiny import App, ui, render
-from shiny import reactive
+from shiny import App, ui, render, reactive
 import head
+import psycopg2
 
 # Read host options from YAML
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -175,7 +175,7 @@ app_ui = ui.tags.div(
             # Refresh button stays at the very top (right after host select)
             ui.tags.div(
                 ui.input_action_button(
-                    "start_btn", "Refresh", class_="button button1",
+                    "start_btn", "Get Forcing", class_="button button1",
                     style="width:90%; margin-bottom:8px;"
                 ),
             ),
@@ -185,7 +185,7 @@ app_ui = ui.tags.div(
             ui.tags.div(
                 ui.input_action_button("view_output", "Output", class_="button button1",
                                        style="width:90%; margin-bottom:8px;"),
-                ui.input_action_button("view_database", "Database", class_="button button1",
+                ui.input_action_button("view_config", "Config", class_="button button1",
                                        style="width:90%; margin-bottom:24px;"),
                 style="margin-bottom: 16px;"
             ),
@@ -242,18 +242,87 @@ def server(inputs, outputs, session):
     # Reactive value for output text
     assert session
     terminal_text = reactive.Value("")
-    selected_view = reactive.Value("output")  # "output" or "database"
+    selected_view = reactive.Value("output")  # "output" or "Config"
+    selected_resource = reactive.Value(None)
+    selected_plc = reactive.Value(None)  # Only when used "all"
+
+    # Add this near the top of your server function where other reactive values are defined
+    resource_buttons_trigger = reactive.Value(0)
 
     # View-switching logic
     @reactive.effect
     @reactive.event(inputs.view_output)
     def _():
         selected_view.set("output")
+        print("Selected view is:", selected_view())
 
     @reactive.effect
-    @reactive.event(inputs.view_database)
+    @reactive.event(inputs.view_config)
     def _():
-        selected_view.set("database")
+        selected_view.set("Config")
+        print("Selected view is:", selected_view())
+
+    @reactive.effect
+    def handle_resource_clicks():
+        sftp_hosts = config.get('sftp_hosts', [])
+        selected_host_val = inputs.host_select()
+
+        # Filter the right host(s)
+        if selected_host_val == "all":
+            hosts = sftp_hosts
+        else:
+            hosts = [h for h in sftp_hosts if
+                     h.get('hostname') == selected_host_val or h.get('ip_address') == selected_host_val]
+
+        for i, host in enumerate(hosts):
+            resources = host.get('resources', [])
+            for j, resource in enumerate(resources):
+                btn_id = f"resource_{j}"
+                if hasattr(inputs, btn_id):
+                    btn_input = getattr(inputs, btn_id)
+                    if btn_input() > 0:
+                        # Find which PLC this resource belongs to
+                        host_name = host.get("hostname", host.get("ip_address"))
+                        # Set the resource selection
+                        selected_resource.set(resource)
+                        # Update the PLC selection to maintain parent-child relationship
+                        selected_plc.set(host_name)
+                        selected_view.set("resource")
+                        print(f"Selected resource: {resource} on PLC: {host_name}")
+                        print(f"Selected view: {selected_view()}")
+
+                        # --- NEW: Fetch plc_bits for this PLC and resource ---
+                        results = fetch_plc_bits(host_name, resource)
+                        # Print or process your results as needed
+                        print("Results from plc_bits view:")
+                        for row in results:
+                            print(row)
+
+    @reactive.effect
+    def handle_plc_clicks():
+        sftp_hosts = config.get('sftp_hosts', [])
+
+        if inputs.host_select() != "all":
+            return  # only active when "all" is selected
+
+        for i, host in enumerate(sftp_hosts):
+            btn_id = f"plc_{i}"
+            if hasattr(inputs, btn_id):
+                btn_input = getattr(inputs, btn_id)
+                if btn_input() > 0:
+                    hostname = host.get("hostname", host.get("ip_address"))
+                    print(f"PLC clicked: {hostname}")
+                    # Set PLC selection
+                    selected_plc.set(hostname)
+                    # IMPORTANT: Clear resource selection when PLC changes
+                    selected_resource.set(None)
+                    selected_view.set("ALL")
+
+                    # Fetch and process plc_bits for this PLC only
+                    results = fetch_plc_bits(hostname)
+                    print("Results for PLC:", hostname)
+                    for row in results:
+                        print(row)
 
     @outputs()
     @render.text
@@ -269,10 +338,11 @@ def server(inputs, outputs, session):
     @reactive.event(inputs.start_btn)
     def on_start():
         selected_host_value = inputs.host_select()
+        # When "all" is selected, pass "all" directly to run_head_and_capture_output
+        # instead of trying to use selected_plc() which could be None
         captured_output = run_head_and_capture_output(config, selected_host_value)
         terminal_text.set(captured_output or "[No output produced]")
 
-    # Main panel UI switching
     @outputs()
     @render.ui
     def main_panel():
@@ -282,32 +352,88 @@ def server(inputs, outputs, session):
                 ui.tags.h2("Output"),
                 ui.output_text_verbatim("terminal_output", placeholder=True)
             )
-        elif selected_view() == "database":
+        elif selected_view() == "Config":
+            # Load and display the content of plc.yaml for editing
+            with open(yaml_path, "r") as file:
+                yaml_content = file.read()
+
             return ui.tags.div(
-                ui.tags.h2("Database"),
-                ui.tags.p("Database content goes here...")
-                # Add any UI elements for your Database view here
+                ui.tags.h2("PLC Configuration"),  # Title
+                # Container for label and text area
+                ui.tags.div(
+                    ui.tags.label(
+                        "Edit PLC Configuration:",
+                        **{"for": "yaml_editor"},
+                        style="display: block; margin-bottom: 8px; font-size: 1.1rem;"  # Label above the text area
+                    ),
+                    ui.input_text_area(
+                        "yaml_editor",
+                        label=None,
+                        value=yaml_content,
+                        height="600px",  # Larger height
+                        width="800px",  # Larger width
+                        resize="both"  # Allow resizing in both directions
+                    ),
+                    style="display: flex; flex-direction: column; align-items: center; margin: 0 auto;"
+                    # Center text area
+                ),
+                # Save button container
+                ui.tags.div(
+                    ui.input_action_button(
+                        "save_config",
+                        "Save Changes",
+                        class_="button button1",
+                        style="margin-top: 16px; padding: 10px 20px;"  # Add margin and padding to the button
+                    ),
+                    ui.tags.div(
+                        ui.output_text("save_status_output"),
+                        style="margin-top: 12px; font-weight: bold;"  # Status message styling
+                    ),
+                    style="display: flex; flex-direction: column; align-items: center; margin-top: 16px;"
+                ),
+                style="width: 800px; margin: 0 auto; text-align: center;"  # Center the layout with a wider container
+            )
+        elif selected_view() == "resource":
+            return ui.tags.div(
+                ui.tags.h2("Resource"),
+                ui.tags.p(f"Geselecteerde resource: {selected_resource()}"),
+                ui.tags.p("Resource content goes here...")
+            )
+        elif selected_view() == "ALL":
+            return ui.tags.div(
+                ui.tags.h2("PLC View"),
+                ui.tags.p(f"Geselecteerde PLC: {selected_plc()}"),
+                ui.tags.p("PLC content goes here....")
             )
         return None
 
     @outputs()
     @render.ui
     def resource_buttons():
+        # Make this output depend on the trigger
+        resource_buttons_trigger()
+
         selected_hosts = inputs.host_select()
         sftp_hosts = config.get('sftp_hosts', [])
 
-        # If "all" is selected, show PLC names as buttons
         if not selected_hosts or selected_hosts == "all":
-            plc_buttons = [
-                ui.input_action_button(f"plc_{i}", host.get('hostname'),
-                                       class_="button button1", style="width:90%; margin-bottom:8px;")
-                for i, host in enumerate(sftp_hosts)
-            ]
+            plc_buttons = []
+            for i, host in enumerate(sftp_hosts):
+                hostname = host.get('hostname', host.get('ip_address'))
+                # Add selected class if this PLC is currently selected
+                class_name = "button button1"
+                if selected_plc() == hostname:
+                    class_name += " selected"
+
+                plc_buttons.append(
+                    ui.input_action_button(f"plc_{i}", hostname,
+                                           class_="button button1", style="width:90%; margin-bottom:8px;")
+                )
+
             if not plc_buttons:
                 return ui.tags.p("No PLCs found.")
             return ui.tags.div(*plc_buttons)
 
-        # If a single PLC is selected, show its resources as buttons
         host_cfg = next((host for host in sftp_hosts
                          if host.get('hostname') == selected_hosts or host.get('ip_address') == selected_hosts), None)
         if not host_cfg:
@@ -317,13 +443,141 @@ def server(inputs, outputs, session):
         if not resources:
             return ui.tags.p("No resources found for this PLC.")
 
-        # Make a button for each resource (not "View"), like the "database" button works
-        resource_button = [
-            ui.input_action_button(f"resource_{i}", resource,
-                                   class_="button button1", style="width:90%; margin-bottom:8px;")
-            for i, resource in enumerate(resources)
-        ]
-        return ui.tags.div(*resource_button)
+        # Highlight which button is active
+        buttons = []
+        for i, resource in enumerate(resources):
+            btn_id = f"resource_{i}"
+            class_name = "button button1"
+            if selected_resource() == resource:
+                class_name += " selected"
+            buttons.append(
+                ui.input_action_button(btn_id, resource,
+                                       class_="button button1", style="width:90%; margin-bottom:8px;")
+            )
+        return ui.tags.div(*buttons)
+
+    # Inside the server function
+    save_status = reactive.Value("")
+
+    @reactive.effect
+    @reactive.event(inputs.save_config)
+    def save_yaml_config():
+        try:
+            # Get the content from the text area
+            yaml_content = inputs.yaml_editor()
+
+            # Validate YAML format before saving
+            try:
+                # Check if it's valid YAML
+                test_config = yaml.safe_load(yaml_content)
+
+                # Write to file
+                with open(yaml_path, "w") as file:
+                    file.write(yaml_content)
+
+                # Update save status
+                save_status.set("Configuration saved successfully!")
+
+                # Update the config variable with new content
+                global config, host_options
+                config = test_config
+
+                # Update host options based on the new config
+                host_options = {
+                    "all": "All",
+                    **{
+                        host.get('hostname', host.get('ip_address')): host.get('hostname', host.get('ip_address'))
+                        for host in config.get('sftp_hosts', [])
+                    }
+                }
+
+                # Update the input select component with new options
+                ui.update_select(
+                    "host_select",
+                    choices=host_options
+                )
+
+                # Clear resource selection if it no longer exists in the updated config
+                current_host = inputs.host_select()
+                current_resource = selected_resource()
+
+                if current_host != "all" and current_resource is not None:
+                    # Find the host in the new config
+                    host_cfg = next((host for host in config.get('sftp_hosts', [])
+                                     if host.get('hostname') == current_host or
+                                     host.get('ip_address') == current_host), None)
+
+                    # If host exists, check if the resource still exists
+                    if host_cfg:
+                        resources = host_cfg.get('resources', [])
+                        if current_resource not in resources:
+                            # Resource no longer exists, clear selection
+                            selected_resource.set(None)
+
+                # Trigger a refresh of the resource buttons
+                resource_buttons_trigger.set(resource_buttons_trigger() + 1)
+
+            except yaml.YAMLError as e:
+                save_status.set(f"Error: Invalid YAML format - {str(e)}")
+
+        except Exception as e:
+            save_status.set(f"Error saving file: {str(e)}")
+
+    @outputs()
+    @render.text
+    def save_status_output():
+        return save_status.get()
+
+
+def fetch_plc_bits(plc_name, resource_name=None):
+    """
+    Fetch PLC bits from database, optionally filtering by resource.
+    
+    Args:
+        plc_name: The name of the PLC to filter by
+        resource_name: Optional resource name to filter by
+    
+    Returns:
+        List of results from database
+    """
+    try:
+        # Use your config for DB params
+        db_config = config['database']
+        conn = psycopg2.connect(
+            host=db_config['host'],
+            port=db_config['port'],
+            database=db_config['database'],
+            user=db_config['user'],
+            password=db_config['password'],
+        )
+        cur = conn.cursor()
+
+        # Adjust query based on whether resource_name is provided
+        if resource_name:
+            sql = """
+                  SELECT *
+                  FROM plc_bits
+                  WHERE PLC = %s
+                    AND resource = %s
+                  """
+            cur.execute(sql, (plc_name, resource_name))
+        else:
+            sql = """
+                  SELECT *
+                  FROM plc_bits
+                  WHERE PLC = %s
+                  """
+            cur.execute(sql, (plc_name,))
+
+        results = cur.fetchall()
+        cur.close()
+        conn.close()
+        return results
+    except Exception as e:
+        import traceback
+        error_msg = f"Database error: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)  # Print to console for debugging
+        return [("ERROR", error_msg)]  # Return error as a result to display in UI
 
 
 app = App(app_ui, server)
