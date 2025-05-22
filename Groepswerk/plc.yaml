@@ -18,7 +18,6 @@ sftp_hosts:
       - "UitSeq"
     db_path: "//SVKWA337/Pilot_Project/Rxi/REG/controller.ctrl"
 
-
   - hostname: "REG"
     ip_address: "10.243.13.89"
     port: *port
@@ -38,7 +37,6 @@ sftp_hosts:
       - "KMOR"
       - "WT1"
     db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
-
 
 
 ### SQL_SERVER info

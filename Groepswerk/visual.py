@@ -5,7 +5,7 @@ import yaml
 from shiny import App, ui, render, reactive
 import head
 import psycopg2
-from config_loader import ConfigLoader
+from class_config_loader import ConfigLoader
 from insert_data_db_yaml import sync_plcs_and_resources
 
 # Read host options from YAML
