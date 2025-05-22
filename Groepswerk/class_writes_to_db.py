@@ -1,4 +1,3 @@
-import psycopg2
 # from class_bit_conversion import BitConversion
 #
 #
