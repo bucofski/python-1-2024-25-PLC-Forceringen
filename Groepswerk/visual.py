@@ -4,6 +4,7 @@ import yaml
 import os
 from shiny import App, ui, render, reactive
 import head
+import psycopg2
 
 # Read host options from YAML
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -290,6 +291,13 @@ def server(inputs, outputs, session):
                         print(f"Selected resource: {resource} on PLC: {host_name}")
                         print(f"Selected view: {selected_view()}")
 
+                        # --- NEW: Fetch plc_bits for this PLC and resource ---
+                        results = fetch_plc_bits(host_name, resource)
+                        # Print or process your results as needed
+                        print("Results from plc_bits view:")
+                        for row in results:
+                            print(row)
+
     @reactive.effect
     def handle_plc_clicks():
         sftp_hosts = config.get('sftp_hosts', [])
@@ -309,6 +317,12 @@ def server(inputs, outputs, session):
                     # IMPORTANT: Clear resource selection when PLC changes
                     selected_resource.set(None)
                     selected_view.set("ALL")
+
+                    # Fetch and process plc_bits for this PLC only
+                    results = fetch_plc_bits(hostname)
+                    print("Results for PLC:", hostname)
+                    for row in results:
+                        print(row)
 
     @outputs()
     @render.text
@@ -513,6 +527,57 @@ def server(inputs, outputs, session):
     @render.text
     def save_status_output():
         return save_status.get()
+
+
+def fetch_plc_bits(plc_name, resource_name=None):
+    """
+    Fetch PLC bits from database, optionally filtering by resource.
+    
+    Args:
+        plc_name: The name of the PLC to filter by
+        resource_name: Optional resource name to filter by
+    
+    Returns:
+        List of results from database
+    """
+    try:
+        # Use your config for DB params
+        db_config = config['database']
+        conn = psycopg2.connect(
+            host=db_config['host'],
+            port=db_config['port'],
+            database=db_config['database'],
+            user=db_config['user'],
+            password=db_config['password'],
+        )
+        cur = conn.cursor()
+
+        # Adjust query based on whether resource_name is provided
+        if resource_name:
+            sql = """
+                  SELECT *
+                  FROM plc_bits
+                  WHERE PLC = %s
+                    AND resource = %s
+                  """
+            cur.execute(sql, (plc_name, resource_name))
+        else:
+            sql = """
+                  SELECT *
+                  FROM plc_bits
+                  WHERE PLC = %s
+                  """
+            cur.execute(sql, (plc_name,))
+
+        results = cur.fetchall()
+        cur.close()
+        conn.close()
+        return results
+    except Exception as e:
+        import traceback
+        error_msg = f"Database error: {str(e)}\n{traceback.format_exc()}"
+        print(error_msg)  # Print to console for debugging
+        return [("ERROR", error_msg)]  # Return error as a result to display in UI
 
 
 app = App(app_ui, server)
