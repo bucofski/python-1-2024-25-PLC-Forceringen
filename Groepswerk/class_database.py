@@ -1,7 +1,7 @@
 from datetime import datetime
 import pyodbc
-import yaml
 from class_making_querry import FileReader, DataProcessor
+from class_config_loader import ConfigLoader
 
 
 class DatabaseSearcher:
@@ -85,9 +85,10 @@ class DatabaseSearcher:
 
 if __name__ == "__main__":
     start = datetime.now()
-    # Load department_name from plc.yaml
-    with open("plc.yaml", "r") as f:
-        config = yaml.safe_load(f)
+
+    # Use ConfigLoader to load configuration from YAML
+    config_loader = ConfigLoader("plc.yaml")
+    config = config_loader.config
     department_name = config.get("department_name", "UNKNOWN")
 
     db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"

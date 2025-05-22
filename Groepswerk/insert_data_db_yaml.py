@@ -1,78 +1,81 @@
-import yaml
 import psycopg2
+from class_config_loader import ConfigLoader
 
 
-def sync_plcs_and_resources(yaml_path, conn):
-    with open(yaml_path, "r") as f:
-        config = yaml.safe_load(f)
-
+def sync_plcs_and_resources(config_loader, conn):
+    # Use the ConfigLoader to get configuration parts
+    yaml_plcs = set()
+    yaml_resources = set()
     plc_resources = set()
-    for host in config.get("sftp_hosts", []):
+
+    for host in config_loader.get_sftp_hosts():
         plc = host.get('hostname')
         resources = host.get('resources', [])
+        yaml_plcs.add(plc)
         for resource in resources:
+            yaml_resources.add(resource)
             plc_resources.add((plc, resource))
 
     with conn:
         with conn.cursor() as cur:
+            # Get existing PLCs and resources from database
+            cur.execute("SELECT plc_name FROM plc")
+            db_plcs = {row[0] for row in cur.fetchall()}
+
+            cur.execute("SELECT resource_name FROM resource")
+            db_resources = {row[0] for row in cur.fetchall()}
+
+            # Delete PLCs that are in DB but not in YAML
+            plcs_to_delete = db_plcs - yaml_plcs
+            for plc_name in plcs_to_delete:
+                cur.execute("DELETE FROM plc WHERE plc_name = %s", (plc_name,))
+
+            # Delete resources that are in DB but not in YAML (optional)
+            resources_to_delete = db_resources - yaml_resources
+            for resource_name in resources_to_delete:
+                cur.execute("DELETE FROM resource WHERE resource_name = %s", (resource_name,))
+
             # Insert new PLCs
-            for plc, _ in plc_resources:
+            for plc in yaml_plcs:
                 cur.execute("""
                             INSERT INTO plc (plc_name)
                             VALUES (%s) ON CONFLICT (plc_name) DO NOTHING
                             """, (plc,))
 
             # Insert new Resources
-            for _, resource in plc_resources:
+            for resource in yaml_resources:
                 cur.execute("""
                             INSERT INTO resource (resource_name)
                             VALUES (%s) ON CONFLICT (resource_name) DO NOTHING
                             """, (resource,))
 
-            # Build lookup maps for IDs
+            # Build lookup maps for IDs if needed for other operations
             cur.execute("SELECT plc_id, plc_name FROM plc")
             plc_lookup = {name: plc_id for plc_id, name in cur.fetchall()}
             cur.execute("SELECT resource_id, resource_name FROM resource")
             resource_lookup = {name: res_id for res_id, name in cur.fetchall()}
 
-            # Insert/keep associations in join table
+            # For each PLC-resource pair, we could create placeholder entries in resource_bit
             for plc, resource in plc_resources:
                 cur.execute("""
-                            INSERT INTO plc_resource (plc_id, resource_id)
-                            VALUES (%s, %s) ON CONFLICT (plc_id, resource_id) DO NOTHING
+                            SELECT COUNT(*)
+                            FROM resource_bit
+                            WHERE plc_id = %s
+                              AND resource_id = %s
                             """, (plc_lookup[plc], resource_lookup[resource]))
-
-            # Delete any association not in the YAML
-            if plc_resources:
-                # Prepare a string for the VALUES section and corresponding flat tuple list
-                values_sql = ",".join(["(%s, %s)"] * len(plc_resources))
-                values_flat = []
-                for plc, resource in plc_resources:
-                    values_flat.extend([plc, resource])
-
-                delete_sql = f"""
-                    DELETE FROM plc_resource
-                    WHERE NOT (plc_id, resource_id) IN (
-                        SELECT p.plc_id, r.resource_id
-                        FROM (VALUES {values_sql}) AS v(plc_name, resource_name)
-                        JOIN plc p ON v.plc_name = p.plc_name
-                        JOIN resource r ON v.resource_name = r.resource_name
-                    )
-                """
-                cur.execute(delete_sql, values_flat)
-            else:
-                cur.execute("DELETE FROM plc_resource")  # If nothing in YAML, clear all
-
-
-def get_postgres_connection_info(yaml_path):
-    with open(yaml_path, "r") as f:
-        config = yaml.safe_load(f)
-    return config["postgres"]
+                count = cur.fetchone()[0]
+                if count == 0:
+                    cur.execute("""
+                                INSERT INTO resource_bit (plc_id, resource_id, bit_number, kks)
+                                VALUES (%s, %s, 'placeholder', %s) ON CONFLICT DO NOTHING
+                                """, (plc_lookup[plc], resource_lookup[resource],
+                                      f"{plc}-{resource}-placeholder"))
 
 
 if __name__ == "__main__":
     yaml_path = "plc.yaml"
-    pg_info = get_postgres_connection_info(yaml_path)
+    config_loader = ConfigLoader(yaml_path)
+    pg_info = config_loader.get_database_info()
     conn = psycopg2.connect(**pg_info)
-    sync_plcs_and_resources(yaml_path, conn)
+    sync_plcs_and_resources(config_loader, conn)
     conn.close()

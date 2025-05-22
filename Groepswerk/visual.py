@@ -1,34 +1,30 @@
 import sys
 import io
-import yaml
 import os
+import yaml
 from shiny import App, ui, render, reactive
 import head
 import psycopg2
+from config_loader import ConfigLoader
+from insert_data_db_yaml import sync_plcs_and_resources
 
 # Read host options from YAML
 script_dir = os.path.dirname(os.path.abspath(__file__))
 yaml_path = os.path.join(script_dir, "..", "Groepswerk", "plc.yaml")
 
 try:
-    with open(yaml_path, "r") as f:
-        config = yaml.safe_load(f)
+    config_loader = ConfigLoader(yaml_path)
+    config = config_loader.config  # Store for backward compatibility
+    host_options = config_loader.get_host_options()
 except FileNotFoundError:
     raise RuntimeError(
         f"YAML config file not found: {yaml_path}\n"
         "Please make sure 'plc.yaml' exists in the Groepswerk folder next to this script."
     )
 
-host_options = {
-    "all": "All",  # Add this line
-    **{
-        host.get('hostname', host.get('ip_address')): host.get('hostname', host.get('ip_address'))
-        for host in config.get('sftp_hosts', [])
-    }
-}
-
 COLOR = "#FB4400"
 
+# Rest of the UI code remains the same
 app_ui = ui.tags.div(
     # CSS for sidebar and transitions - updated with font
     ui.tags.style(
@@ -215,7 +211,7 @@ app_ui = ui.tags.div(
 )
 
 
-def run_head_and_capture_output(config_output, selected_host_value):
+def run_head_and_capture_output(config_obj, selected_host_value):
     buffer = io.StringIO()
     old_stdout = sys.stdout
     old_stderr = sys.stderr
@@ -223,13 +219,13 @@ def run_head_and_capture_output(config_output, selected_host_value):
     try:
         if selected_host_value == "all":
             # For 'all', call it for every host in the yaml
-            for host in config_output.get('sftp_hosts', []):
+            for host in config_obj.get('sftp_hosts', []):
                 host_name = host.get('hostname', host.get('ip_address'))
                 print(f"=== {host_name} ===")
-                head.run_main_with_host(config_output, host_name)
+                head.run_main_with_host(config_obj, host_name)
                 print()
         else:
-            head.run_main_with_host(config_output, selected_host_value)
+            head.run_main_with_host(config_obj, selected_host_value)
     except Exception as e:
         print(f"Error: {e}")
     finally:
@@ -479,17 +475,14 @@ def server(inputs, outputs, session):
                 save_status.set("Configuration saved successfully!")
 
                 # Update the config variable with new content
-                global config, host_options
+                global config, host_options, config_loader
                 config = test_config
 
+                # Reinitialize the config_loader with the new configuration
+                config_loader = ConfigLoader(yaml_path)
+
                 # Update host options based on the new config
-                host_options = {
-                    "all": "All",
-                    **{
-                        host.get('hostname', host.get('ip_address')): host.get('hostname', host.get('ip_address'))
-                        for host in config.get('sftp_hosts', [])
-                    }
-                }
+                host_options = config_loader.get_host_options()
 
                 # Update the input select component with new options
                 ui.update_select(
@@ -503,7 +496,7 @@ def server(inputs, outputs, session):
 
                 if current_host != "all" and current_resource is not None:
                     # Find the host in the new config
-                    host_cfg = next((host for host in config.get('sftp_hosts', [])
+                    host_cfg = next((host for host in config_loader.get_sftp_hosts()
                                      if host.get('hostname') == current_host or
                                      host.get('ip_address') == current_host), None)
 
@@ -517,7 +510,42 @@ def server(inputs, outputs, session):
                 # Trigger a refresh of the resource buttons
                 resource_buttons_trigger.set(resource_buttons_trigger() + 1)
 
-            except yaml.YAMLError as e:
+                # Synchronize the database with PLC and resource information
+                try:
+                    # Set a temporary status to show the user something is happening
+                    save_status.set("Configuration saved. Synchronizing database...")
+
+                    # Force UI update by allowing the event loop to process
+                    session.send_custom_message("force_update", {})
+
+                    # Connect to the database with a timeout
+                    conn = psycopg2.connect(
+                        **config_loader.get_database_info(),
+                        connect_timeout=10  # Add a timeout to prevent hanging indefinitely
+                    )
+
+                    # Sync PLCs and resources
+                    sync_plcs_and_resources(config_loader, conn)
+
+                    # Close the connection
+                    conn.close()
+
+                    # Update save status to include database sync
+                    save_status.set("Configuration saved and database synchronized successfully!")
+                except ImportError as import_err:
+                    # Specific error for module import problems
+                    save_status.set(f"Configuration saved but couldn't import database module: {str(import_err)}")
+                except psycopg2.OperationalError as db_conn_err:
+                    # Database connection errors
+                    save_status.set(f"Configuration saved but database connection failed: {str(db_conn_err)}")
+                except Exception as db_error:
+                    # General error handling with more details
+                    import traceback
+                    error_details = traceback.format_exc()
+                    print(f"Database sync error: {error_details}")  # Log the full error
+                    save_status.set(f"Configuration saved but database sync failed: {str(db_error)}")
+
+            except Exception as e:
                 save_status.set(f"Error: Invalid YAML format - {str(e)}")
 
         except Exception as e:
@@ -526,23 +554,23 @@ def server(inputs, outputs, session):
     @outputs()
     @render.text
     def save_status_output():
-        return save_status.get()
+        return save_status()
 
 
 def fetch_plc_bits(plc_name, resource_name=None):
     """
     Fetch PLC bits from database, optionally filtering by resource.
-    
+
     Args:
         plc_name: The name of the PLC to filter by
         resource_name: Optional resource name to filter by
-    
+
     Returns:
         List of results from database
     """
     try:
         # Use your config for DB params
-        db_config = config['database']
+        db_config = config_loader.get_database_info()
         conn = psycopg2.connect(
             host=db_config['host'],
             port=db_config['port'],

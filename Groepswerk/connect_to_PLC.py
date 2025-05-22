@@ -1,4 +1,4 @@
-import yaml
+from class_config_loader import ConfigLoader
 import paramiko
 import os
 
@@ -64,8 +64,7 @@ class SFTPClient:
 
 if __name__ == "__main__":
     # Load config from yaml
-    with open("plc.yaml", "r") as f:
-        config = yaml.safe_load(f)
+    config = ConfigLoader("plc.yaml")
 
     sftp_hosts = config.get("sftp_hosts", [])
     if not sftp_hosts:
