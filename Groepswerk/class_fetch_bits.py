@@ -49,6 +49,7 @@ class PLCBitRepositoryAsync:
                 return [dict(record) for record in results]
             finally:
                 await conn.close()
+            return None
         except Exception as e:
             import traceback
             error_msg = f"Database error: {str(e)}\n{traceback.format_exc()}"

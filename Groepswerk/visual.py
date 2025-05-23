@@ -1,4 +1,4 @@
-from insert_data_db_yaml import sync_plcs_and_resources
+from insert_data_db_yaml import sync_plcs_and_resources_async
 from class_fetch_bits import PLCBitRepositoryAsync
 from class_config_loader import ConfigLoader
 from shiny import App, ui, render, reactive
@@ -464,9 +464,10 @@ def server(inputs, outputs, session):
     # Inside the server function
     save_status = reactive.Value("")
 
+    # --- Config Save Handler ---
     @reactive.effect
     @reactive.event(inputs.save_config)
-    def save_yaml_config():
+    async def save_yaml_config():
         try:
             global config, host_options, config_loader
             # Get the content from the text area
@@ -518,28 +519,30 @@ def server(inputs, outputs, session):
                 # Trigger a refresh of the resource buttons
                 resource_buttons_trigger.set(resource_buttons_trigger() + 1)
 
-                # Synchronize the database with PLC and resource information
+                # Inside the save_yaml_config function:
                 try:
                     # Set a temporary status to show the user something is happening
                     save_status.set("Configuration saved. Synchronizing database...")
 
                     # Force UI update by allowing the event loop to process
-                    session.send_custom_message("force_update", {})
+                    await session.send_custom_message("force_update", {})
 
-                    # Connect to the database with a timeout
-                    conn = psycopg2.connect(
-                        **config_loader.get_database_info(),
-                        connect_timeout=10  # Add a timeout to prevent hanging indefinitely
-                    )
-
-                    # Sync PLCs and resources
-                    sync_plcs_and_resources(config_loader, conn)
-
-                    # Close the connection
-                    conn.close()
-
-                    # Update saves a status to include database sync
-                    save_status.set("Configuration saved and database synchronized successfully!")
+                    # Create an instance of PLCBitRepositoryAsync
+                    repo = PLCBitRepositoryAsync(config_loader)
+                    
+                    # Use the instance's method to get a connection
+                    conn = await repo._get_connection()
+                    
+                    try:
+                        # Use the async version of sync_plcs_and_resources
+                        await sync_plcs_and_resources_async(config_loader, conn)
+                        
+                        # Update saves a status to include database sync
+                        save_status.set("Configuration saved and database synchronized successfully!")
+                    finally:
+                        # Close the connection
+                        await conn.close()  # Make sure to await the close operation
+                        
                 except ImportError as import_err:
                     # Specific error for module import problems
                     save_status.set(f"Configuration saved but couldn't import database module: {str(import_err)}")
