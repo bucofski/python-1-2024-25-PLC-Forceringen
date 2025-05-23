@@ -56,7 +56,10 @@ class PostgreSQLManager(DatabaseConnector):
         self.cur = self.conn.cursor()
 
     def insert_resource_bit(self, resource_name, bit_number, kks, comment, second_comment, value):
-        """Insert a resource bit record."""
+        """
+        Call the PostgreSQL stored function to insert a resource bit.
+        The function handles PLC lookup and resource validation.
+        """
         self.execute(
             "SELECT insert_resource_bit(%s, %s, %s, %s, %s, %s);",
             (resource_name, bit_number, kks, comment, second_comment, value)
@@ -70,9 +73,8 @@ class PostgreSQLManager(DatabaseConnector):
 class DataImporter:
     """Handles data import from BitConversion to PostgreSQL."""
 
-    def __init__(self, db_config, resource_default='NIET'):
+    def __init__(self, db_config):
         self.db_config = db_config
-        self.RESOURCE_DEFAULT = resource_default
 
     def import_data(self, input_file_path, access_db_path):
         """Process and import data from source to database."""
@@ -116,6 +118,8 @@ class DataImporter:
         """Import converted data to database."""
         inserted_count = 0
         error_count = 0
+        resources_stats = {}  # Track statistics by resource
+        skipped_records = []  # Track records skipped due to missing required fields
 
         # Use batch commit for better performance
         batch_size = 100
@@ -124,13 +128,37 @@ class DataImporter:
             try:
                 # Map the fields from BitConversion to the database fields
                 bit_number = data.get('name_id')
-                kks = str(data.get('KKS', 'None'))
-                comment = str(data.get('Comment', 'None'))
-                second_comment = str(data.get('Second_comment', 'None'))  # Using correct field name
-                value = str(data.get('Value', 'NULL'))
-                resource_name = data.get('resource') or self.RESOURCE_DEFAULT
+                if not bit_number:
+                    raise ValueError("Missing required 'name_id' field")
 
-                db.insert_resource_bit(resource_name, bit_number, kks, comment, second_comment, value)
+                kks = str(data.get('KKS', ''))
+                if not kks:
+                    raise ValueError("Missing required 'KKS' field")
+
+                comment = str(data.get('Comment', ''))
+                second_comment = str(data.get('Second_comment', ''))
+                value = str(data.get('Value', ''))
+
+                # Get resource - could be 'NIET' or another value like 'House'
+                resource_name = data.get('resource')
+                if not resource_name:
+                    raise ValueError("Missing required 'resource' field")
+
+                # Track resource statistics
+                if resource_name not in resources_stats:
+                    resources_stats[resource_name] = 0
+                resources_stats[resource_name] += 1
+
+                # Call the PostgreSQL function to insert the bit
+                # Note: The PostgreSQL function handles PLC lookup (hardcoded to 'BTEST')
+                db.insert_resource_bit(
+                    resource_name,
+                    bit_number,
+                    kks,
+                    comment,
+                    second_comment,
+                    value
+                )
 
                 # Commit in batches for better performance
                 if (i + 1) % batch_size == 0:
@@ -138,14 +166,36 @@ class DataImporter:
                     print(f"Progress: {i + 1} records processed")
 
                 inserted_count += 1
+            except ValueError as val_err:
+                # These are validation errors for missing fields
+                skipped_record = {
+                    'name_id': data.get('name_id', '?'),
+                    'error': str(val_err)
+                }
+                skipped_records.append(skipped_record)
+                error_count += 1
             except Exception as bit_err:
+                # These are database errors (e.g., resource not found)
                 print(f"❌ Error inserting bit {data.get('name_id', '?')}: {bit_err}")
-                db.rollback()
                 error_count += 1
 
         # Final commit for any remaining records
         db.commit()
+
+        # Print summary statistics
         print(f"✅ Data import completed: {inserted_count} records inserted, {error_count} errors")
+
+        if skipped_records:
+            print("\nSkipped records due to missing required fields:")
+            for i, record in enumerate(skipped_records[:10], 1):  # Show first 10 only
+                print(f"  {i}. Bit {record['name_id']}: {record['error']}")
+
+            if len(skipped_records) > 10:
+                print(f"  ... and {len(skipped_records) - 10} more")
+
+        print("\nResource distribution:")
+        for resource, count in sorted(resources_stats.items()):
+            print(f"  - {resource}: {count} records")
 
 
 # Configuration
@@ -156,11 +206,10 @@ DB_CONFIG = {
     'user': 'postgres',
     'password': '123'
 }
-RESOURCE_DEFAULT = 'NIET'
 
 
 def main():
-    importer = DataImporter(DB_CONFIG, RESOURCE_DEFAULT)
+    importer = DataImporter(DB_CONFIG)
     importer.import_data(
         input_file_path="BTEST_NIET.dat",
         access_db_path=r"D:/controller_l.mdb"
