@@ -468,100 +468,107 @@ def server(inputs, outputs, session):
     @reactive.effect
     @reactive.event(inputs.save_config)
     async def save_yaml_config():
+        """Handle YAML configuration saving and database synchronization."""
         try:
-            global config, host_options, config_loader
-            # Get the content from the text area
+            # Step 1: Get and validate YAML content
             yaml_content = inputs.yaml_editor()
+            test_config = validate_yaml(yaml_content)
+            if not test_config:
+                return
 
-            # Validate YAML format before saving
-            try:
-                # Check if it's valid YAML
-                test_config = yaml.safe_load(yaml_content)
+            # Step 2: Save configuration and update global state
+            update_configuration(yaml_content, test_config)
 
-                # Write to files
-                config_loader.save_config(yaml_content)
+            # Step 3: Update UI components
+            update_ui_components()
 
-                # Update save status
-                save_status.set("Configuration saved successfully!")
-
-                # Update the config variable with new content
-                config = test_config
-
-                # Reinitialize the config_loader with the new configuration
-                config_loader = ConfigLoader(yaml_path)
-
-                # Update host options based on the new config
-                host_options = config_loader.get_host_options()
-
-                # Update the input select component with new options
-                ui.update_select(
-                    "host_select",
-                    choices=host_options
-                )
-
-                # Clear resource selection if it no longer exists in the updated config
-                current_host = inputs.host_select()
-                current_resource = selected_resource()
-
-                if current_host != "all" and current_resource is not None:
-                    # Find the host in the new config
-                    host_cfg = next((host for host in config_loader.get_sftp_hosts()
-                                     if host.get('hostname') == current_host or
-                                     host.get('ip_address') == current_host), None)
-
-                    # If hosts exist, check if the resource still exists
-                    if host_cfg:
-                        resources = host_cfg.get('resources', [])
-                        if current_resource not in resources:
-                            # Resource no longer exists, clear selection
-                            selected_resource.set(None)
-
-                # Trigger a refresh of the resource buttons
-                resource_buttons_trigger.set(resource_buttons_trigger() + 1)
-
-                # Inside the save_yaml_config function:
-                try:
-                    # Set a temporary status to show the user something is happening
-                    save_status.set("Configuration saved. Synchronizing database...")
-
-                    # Force UI update by allowing the event loop to process
-                    await session.send_custom_message("force_update", {})
-
-                    # Create an instance of PLCBitRepositoryAsync
-                    repo = PLCBitRepositoryAsync(config_loader)
-                    
-                    # Use the instance's method to get a connection
-                    conn = await repo._get_connection()
-                    
-                    try:
-                        # Use the async version of sync_plcs_and_resources
-                        plc_sync = PLCResourceSync(config_loader)
-                        await plc_sync.sync_async(conn)
-                        
-                        # Update saves a status to include database sync
-                        save_status.set("Configuration saved and database synchronized successfully!")
-                    finally:
-                        # Close the connection
-                        await conn.close()  # Make sure to await the close operation
-                        
-                except ImportError as import_err:
-                    # Specific error for module import problems
-                    save_status.set(f"Configuration saved but couldn't import database module: {str(import_err)}")
-                except psycopg2.OperationalError as db_conn_err:
-                    # Database connection errors
-                    save_status.set(f"Configuration saved but database connection failed: {str(db_conn_err)}")
-                except Exception as db_error:
-                    # General error handling with more details
-                    import traceback
-                    error_details = traceback.format_exc()
-                    print(f"Database sync error: {error_details}")  # Log the full error
-                    save_status.set(f"Configuration saved but database sync failed: {str(db_error)}")
-
-            except Exception as e:
-                save_status.set(f"Error: Invalid YAML format - {str(e)}")
+            # Step 4: Synchronize with database
+            await sync_with_database()
 
         except Exception as e:
             save_status.set(f"Error saving file: {str(e)}")
+
+    def validate_yaml(yaml_content):
+        """Validate that the provided content is valid YAML."""
+        try:
+            test_config = yaml.safe_load(yaml_content)
+            return test_config
+        except Exception as e:
+            save_status.set(f"Error: Invalid YAML format - {str(e)}")
+            return None
+
+    def update_configuration(yaml_content, test_config):
+        """Save config to file and update global variables."""
+        global config, config_loader
+        
+        # Save to file
+        config_loader.save_config(yaml_content)
+        save_status.set("Configuration saved successfully!")
+        
+        # Update global config
+        config = test_config
+        
+        # Reinitialize config loader
+        config_loader = ConfigLoader(yaml_path)
+        
+        # Update host options
+        global host_options
+        host_options = config_loader.get_host_options()
+
+    def update_ui_components():
+        """Update UI components to reflect the new configuration."""
+        # Update select component
+        ui.update_select("host_select", choices=host_options)
+        
+        # Handle resource selection if it no longer exists
+        current_host = inputs.host_select()
+        current_resource = selected_resource()
+        
+        if current_host != "all" and current_resource is not None:
+            host_cfg = next((host for host in config_loader.get_sftp_hosts()
+                             if host.get('hostname') == current_host or
+                             host.get('ip_address') == current_host), None)
+            
+            if host_cfg:
+                resources = host_cfg.get('resources', [])
+                if current_resource not in resources:
+                    selected_resource.set(None)
+        
+        # Trigger resource buttons refresh
+        resource_buttons_trigger.set(resource_buttons_trigger() + 1)
+
+    async def sync_with_database():
+        """Synchronize the configuration with the database."""
+        try:
+            # Update status
+            save_status.set("Configuration saved. Synchronizing database...")
+            
+            # Force UI update
+            await session.send_custom_message("force_update", {})
+            
+            # Get database connection
+            repo = PLCBitRepositoryAsync(config_loader)
+            conn = await repo._get_connection()
+            
+            try:
+                # Sync database
+                plc_sync = PLCResourceSync(config_loader)
+                await plc_sync.sync_async(conn)
+                
+                # Update status
+                save_status.set("Configuration saved and database synchronized successfully!")
+            finally:
+                await conn.close()
+                
+        except ImportError as import_err:
+            save_status.set(f"Configuration saved but couldn't import database module: {str(import_err)}")
+        except psycopg2.OperationalError as db_conn_err:
+            save_status.set(f"Configuration saved but database connection failed: {str(db_conn_err)}")
+        except Exception as db_error:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"Database sync error: {error_details}")
+            save_status.set(f"Configuration saved but database sync failed: {str(db_error)}")
 
     @outputs()
     @render.text
