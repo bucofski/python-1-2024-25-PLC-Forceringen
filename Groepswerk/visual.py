@@ -459,6 +459,7 @@ def server(inputs, outputs, session):
     @reactive.event(inputs.save_config)
     def save_yaml_config():
         try:
+            global config, host_options, config_loader
             # Get the content from the text area
             yaml_content = inputs.yaml_editor()
 
@@ -468,14 +469,12 @@ def server(inputs, outputs, session):
                 test_config = yaml.safe_load(yaml_content)
 
                 # Write to file
-                with open(yaml_path, "w") as file:
-                    file.write(yaml_content)
+                config_loader.save_config(yaml_content)
 
                 # Update save status
                 save_status.set("Configuration saved successfully!")
 
                 # Update the config variable with new content
-                global config, host_options, config_loader
                 config = test_config
 
                 # Reinitialize the config_loader with the new configuration
