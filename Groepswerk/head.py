@@ -5,6 +5,7 @@ from class_making_querry import FileReader, DataProcessor
 from class_database import DatabaseSearcher
 from class_bit_conversion import BitConversion
 from datetime import datetime
+from class_writes_to_db import DataImporter  # Import the DataImporter class
 
 
 def select_sftp_host(config):
@@ -48,6 +49,54 @@ def main():
     else:
         host_cfg = host_selection
         run_main_with_host(config, host_cfg.get('hostname'))
+
+    # Get database configuration from plc.yaml
+    db_config = config.get('database', {})
+    # Rename 'database' key to 'dbname' if needed for PostgreSQLManager
+    if 'database' in db_config:
+        db_config['dbname'] = db_config.pop('database')
+
+    # Import processed data to database
+    print("\n--- Starting database import ---")
+    try:
+        # Process each host configuration
+        if host_selection == "all":
+            hosts_to_process = config.get("sftp_hosts", [])
+        else:
+            hosts_to_process = [host_cfg]
+
+        for host_cfg in hosts_to_process:
+            access_db_path = host_cfg.get('db_path')
+            if not access_db_path:
+                print(f"Skipping database import for {host_cfg.get('hostname')}: No db_path specified")
+                continue
+
+            # Get local directory for this host
+            host_name = host_cfg.get('hostname')
+            base_local_dir = config.get('local_base_dir', '')
+            if base_local_dir and host_name:
+                local_base_dir = os.path.join(base_local_dir, host_name)
+                if not os.path.exists(local_base_dir):
+                    print(f"Skipping database import for {host_name}: Directory {local_base_dir} does not exist")
+                    continue
+
+                # Process each .dat file in the directory
+                dat_files = [f for f in os.listdir(local_base_dir) if f.endswith('.dat')]
+                if not dat_files:
+                    print(f"No .dat files found in {local_base_dir}")
+                    continue
+
+                for dat_file in dat_files:
+                    input_file_path = os.path.join(local_base_dir, dat_file)
+                    print(f"\nImporting {dat_file} to database...")
+                    importer = DataImporter(db_config)
+                    importer.import_data(input_file_path, access_db_path)
+                    print(f"✅ Database import completed for {dat_file}")
+            else:
+                print(f"Skipping database import for {host_name}: Missing local_base_dir or hostname")
+
+    except Exception as e:
+        print(f"❌ Database import failed: {e}")
 
     end = datetime.now()
     print(f"\nTotal time taken: {(end - start).total_seconds()} seconds")
