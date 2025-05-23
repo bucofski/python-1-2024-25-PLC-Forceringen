@@ -1,4 +1,4 @@
-from insert_data_db_yaml import sync_plcs_and_resources_async
+from insert_data_db_yaml import PLCResourceSync
 from class_fetch_bits import PLCBitRepositoryAsync
 from class_config_loader import ConfigLoader
 from shiny import App, ui, render, reactive
@@ -535,7 +535,8 @@ def server(inputs, outputs, session):
                     
                     try:
                         # Use the async version of sync_plcs_and_resources
-                        await sync_plcs_and_resources_async(config_loader, conn)
+                        plc_sync = PLCResourceSync(config_loader)
+                        await plc_sync.sync_async(conn)
                         
                         # Update saves a status to include database sync
                         save_status.set("Configuration saved and database synchronized successfully!")
