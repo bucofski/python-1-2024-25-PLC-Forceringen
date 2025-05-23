@@ -1,13 +1,13 @@
-import sys
-import io
-import os
-import yaml
-from shiny import App, ui, render, reactive
-import head
-import psycopg2
-from class_config_loader import ConfigLoader
 from insert_data_db_yaml import sync_plcs_and_resources
 from class_fetch_bits import PLCBitRepositoryAsync
+from class_config_loader import ConfigLoader
+from shiny import App, ui, render, reactive
+import psycopg2
+import head
+import yaml
+import sys
+import os
+import io
 
 
 # Read host options from YAML
