@@ -21,12 +21,12 @@ try:
 except FileNotFoundError:
     raise RuntimeError(
         f"YAML config file not found: {yaml_path}\n"
-        "Please make sure 'plc.yaml' exists in the Groepswerk folder next to this script."
+        "Please make sure 'plc.yaml' exists in the group work folder next to this script."
     )
 
 COLOR = "#FB4400"
 
-# Rest of the UI code remains the same
+# Rests of the UI code stay the same
 app_ui = ui.tags.div(
     # CSS for sidebar and transitions - updated with font
     ui.tags.style(
@@ -170,7 +170,7 @@ app_ui = ui.tags.div(
                 ),
                 style="margin-bottom: 32px;"
             ),
-            # Refresh button stays at the very top (right after host select)
+            # Refreshes buttons stays at the very top (right after host select)
             ui.tags.div(
                 ui.input_action_button(
                     "start_btn", "Get Forcing", class_="button button1",
@@ -198,7 +198,7 @@ app_ui = ui.tags.div(
         ),
         style="display: flex; flex-direction: row;"
     ),
-    # Bit of JS to handle sidebar show/hide
+    # Bits of JS to handle sidebar show/hide
     ui.tags.script("""
     document.addEventListener("DOMContentLoaded", function() {
         const sidebar = document.getElementById("sidebar");
@@ -220,7 +220,7 @@ def run_head_and_capture_output(config_obj, selected_host_value):
     sys.stdout = sys.stderr = buffer
     try:
         if selected_host_value == "all":
-            # For 'all', call it for every host in the yaml
+            # For 'all', call it for every host in the yaml_file
             for host in config_obj.get('sftp_hosts', []):
                 host_name = host.get('hostname', host.get('ip_address'))
                 print(f"=== {host_name} ===")
@@ -425,7 +425,7 @@ def server(inputs, outputs, session):
             plc_buttons = []
             for i, host in enumerate(sftp_hosts):
                 hostname = host.get('hostname', host.get('ip_address'))
-                # Add selected class if this PLC is currently selected
+                # Add selects classes if this PLC is currently selected
                 class_name = "button button1"
                 if selected_plc() == hostname:
                     class_name += " selected"
@@ -477,7 +477,7 @@ def server(inputs, outputs, session):
                 # Check if it's valid YAML
                 test_config = yaml.safe_load(yaml_content)
 
-                # Write to file
+                # Write to files
                 config_loader.save_config(yaml_content)
 
                 # Update save status
@@ -508,7 +508,7 @@ def server(inputs, outputs, session):
                                      if host.get('hostname') == current_host or
                                      host.get('ip_address') == current_host), None)
 
-                    # If host exists, check if the resource still exists
+                    # If hosts exist, check if the resource still exists
                     if host_cfg:
                         resources = host_cfg.get('resources', [])
                         if current_resource not in resources:
@@ -538,7 +538,7 @@ def server(inputs, outputs, session):
                     # Close the connection
                     conn.close()
 
-                    # Update save status to include database sync
+                    # Update saves a status to include database sync
                     save_status.set("Configuration saved and database synchronized successfully!")
                 except ImportError as import_err:
                     # Specific error for module import problems
