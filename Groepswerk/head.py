@@ -1,4 +1,3 @@
-import yaml
 import os
 from connect_to_PLC import SFTPClient
 from class_making_querry import FileReader, DataProcessor
