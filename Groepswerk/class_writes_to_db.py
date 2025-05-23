@@ -101,14 +101,21 @@ class DataImporter:
 
     def _get_converted_data(self, input_file_path, access_db_path):
         """Get converted data from BitConversion."""
+        # Get resource name from file name
+        import os
+        file_name = os.path.basename(input_file_path)
+        # Assuming filename format is like "BTEST_NIET.dat"
+        parts = file_name.replace('.dat', '').split('_', 1)
+        resource = parts[1] if len(parts) > 1 else "NIET"  # Default to NIET if not found
+        
         # Read and process the input file
         words_list = FileReader(input_file_path).read_and_parse_file()
         processed_words = list(DataProcessor.convert_and_process_list(words_list))
 
         # Perform database search
         with DatabaseSearcher(access_db_path) as searcher:
-            custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
-            results = searcher.search(processed_words, query_template=custom_query)
+            custom_query = f"SELECT *, SecondComment FROM {resource} WHERE Name IN ({{placeholders}})"
+            results = searcher.search(processed_words, query_template=custom_query, resource=resource)
 
         # Convert bits
         bit_converter = BitConversion(results)
@@ -119,27 +126,45 @@ class DataImporter:
         inserted_count = 0
         error_count = 0
         resources_stats = {}  # Track statistics by resource
-        skipped_records = []  # Track records skipped due to missing required fields
+        errors = []  # Track all errors in one list
 
-        # Use batch commit for better performance
-        batch_size = 100
+        # Reset force active flags
+        try:
+            db.reset_force_active_flags()
+            db.commit()
+            print("✅ Force active flags reset successfully.")
+        except Exception as e:
+            print(f"❌ Error resetting force active flags: {e}")
+            db.rollback()
 
+        # Process each record separately with its own transaction
         for i, data in enumerate(data_list):
+            # Start a fresh transaction for each record
             try:
-                # Map the fields from BitConversion to the database fields
+                # Extract and validate fields
                 bit_number = data.get('name_id')
                 if not bit_number:
                     raise ValueError("Missing required 'name_id' field")
 
-                kks = str(data.get('KKS', ''))
-                if not kks:
-                    raise ValueError("Missing required 'KKS' field")
+                kks = data.get('KKS')
+                # Ensure kks is a string if it exists
+                kks = str(kks) if kks is not None else None
 
+                # Check for invalid KKS values
+                if kks is None or kks.strip() == '' or kks.lower() == 'none':
+                    errors.append({
+                        'name_id': bit_number,
+                        'error': "Missing or invalid KKS value"
+                    })
+                    error_count += 1
+                    continue  # Skip this record
+
+                # Get other fields
                 comment = str(data.get('Comment', ''))
                 second_comment = str(data.get('Second_comment', ''))
                 value = str(data.get('Value', ''))
 
-                # Get resource - could be 'NIET' or another value like 'House'
+                # Get resource
                 resource_name = data.get('resource')
                 if not resource_name:
                     raise ValueError("Missing required 'resource' field")
@@ -147,10 +172,8 @@ class DataImporter:
                 # Track resource statistics
                 if resource_name not in resources_stats:
                     resources_stats[resource_name] = 0
-                resources_stats[resource_name] += 1
 
-                # Call the PostgreSQL function to insert the bit
-                # Note: The PostgreSQL function handles PLC lookup (hardcoded to 'BTEST')
+                # Insert the record - each in its own transaction
                 db.insert_resource_bit(
                     resource_name,
                     bit_number,
@@ -160,43 +183,56 @@ class DataImporter:
                     value
                 )
 
-                # Commit in batches for better performance
-                if (i + 1) % batch_size == 0:
-                    db.commit()
-                    print(f"Progress: {i + 1} records processed")
+                # Commit immediately for this record
+                db.commit()
 
+                # Update statistics
+                resources_stats[resource_name] += 1
                 inserted_count += 1
+
+                # Show progress
+                if (i + 1) % 100 == 0 or i + 1 == len(data_list):
+                    print(f"Progress: {i + 1}/{len(data_list)} records processed")
+
             except ValueError as val_err:
-                # These are validation errors for missing fields
-                skipped_record = {
+                # Skip and record validation errors
+                errors.append({
                     'name_id': data.get('name_id', '?'),
                     'error': str(val_err)
-                }
-                skipped_records.append(skipped_record)
-                error_count += 1
-            except Exception as bit_err:
-                # These are database errors (e.g., resource not found)
-                print(f"❌ Error inserting bit {data.get('name_id', '?')}: {bit_err}")
+                })
                 error_count += 1
 
-        # Final commit for any remaining records
-        db.commit()
+            except Exception as e:
+                # Record other errors
+                error_message = str(e)
+                errors.append({
+                    'name_id': data.get('name_id', '?'),
+                    'error': error_message
+                })
+                error_count += 1
+                # Rollback this record's transaction
+                db.rollback()
 
         # Print summary statistics
-        print(f"✅ Data import completed: {inserted_count} records inserted, {error_count} errors")
+        print(f"\n===== Import Summary =====")
+        print(f"Total records processed: {len(data_list)}")
+        print(f"Successfully inserted: {inserted_count}")
+        print(f"Total errors: {error_count}")
 
-        if skipped_records:
-            print("\nSkipped records due to missing required fields:")
-            for i, record in enumerate(skipped_records[:10], 1):  # Show first 10 only
-                print(f"  {i}. Bit {record['name_id']}: {record['error']}")
-
-            if len(skipped_records) > 10:
-                print(f"  ... and {len(skipped_records) - 10} more")
-
+        # Print resource distribution
         print("\nResource distribution:")
         for resource, count in sorted(resources_stats.items()):
             print(f"  - {resource}: {count} records")
 
+        # Print all errors
+        if errors:
+            print("\nErrors encountered:")
+            for i, record in enumerate(errors[:20], 1):  # Show first 20 errors
+                print(f"  {i}. Bit {record['name_id']}: {record['error']}")
+            if len(errors) > 20:
+                print(f"  ... and {len(errors) - 20} more")
+
+        return inserted_count, error_count
 
 # Configuration
 DB_CONFIG = {
