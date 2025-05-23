@@ -53,7 +53,7 @@ def main():
         run_main_with_host(config_loader, host_cfg.get('hostname'))
 
     # Get database configuration from plc.yaml
-    db_config = config.get('database', {})
+    db_config = config_loader.get('database', {})
     # Rename 'database' key to 'dbname' if needed for PostgreSQLManager
     if 'database' in db_config:
         db_config['dbname'] = db_config.pop('database')
@@ -63,7 +63,7 @@ def main():
     try:
         # Process each host configuration
         if host_selection == "all":
-            hosts_to_process = config.get("sftp_hosts", [])
+            hosts_to_process = config_loader.get("sftp_hosts", [])
         else:
             hosts_to_process = [host_cfg]
 
@@ -75,7 +75,7 @@ def main():
 
             # Get local directory for this host
             host_name = host_cfg.get('hostname')
-            base_local_dir = config.get('local_base_dir', '')
+            base_local_dir = config_loader.get('local_base_dir', '')
             if base_local_dir and host_name:
                 local_base_dir = os.path.join(base_local_dir, host_name)
                 if not os.path.exists(local_base_dir):
