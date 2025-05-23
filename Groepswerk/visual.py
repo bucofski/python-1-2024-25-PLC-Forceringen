@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import io
 import os
@@ -7,7 +8,7 @@ import head
 import psycopg2
 from class_config_loader import ConfigLoader
 from insert_data_db_yaml import sync_plcs_and_resources
-from class_fetch_bits import PLCBitRepository
+from class_fetch_bits import PLCBitRepositoryAsync
 
 
 # Read host options from YAML
@@ -261,7 +262,7 @@ def server(inputs, outputs, session):
         print("Selected view is:", selected_view())
 
     @reactive.effect
-    def handle_resource_clicks():
+    async def handle_resource_clicks():
         sftp_hosts = config.get('sftp_hosts', [])
         selected_host_val = inputs.host_select()
 
@@ -279,28 +280,28 @@ def server(inputs, outputs, session):
                 if hasattr(inputs, btn_id):
                     btn_input = getattr(inputs, btn_id)
                     if btn_input() > 0:
-                        # Find which PLC this resource belongs to
-                        host_name = host.get("hostname", host.get("ip_address"))
-                        # Set the resource selection
+                        hostname = host.get("hostname", host.get("ip_address"))
                         selected_resource.set(resource)
-                        # Update the PLC selection to maintain parent-child relationship
-                        selected_plc.set(host_name)
+                        selected_plc.set(hostname)
                         selected_view.set("resource")
-                        print(f"Selected resource: {resource} on PLC: {host_name}")
+                        print(f"Selected resource: {resource} on PLC: {hostname}")
                         print(f"Selected view: {selected_view()}")
 
                         # --- NEW: Fetch plc_bits for this PLC and resource ---
-                        repo = PLCBitRepository(config_loader)
+                        repo = PLCBitRepositoryAsync(config_loader)
 
-                        results = repo.fetch_plc_bits(host_name, resource_name=resource)
+                        async def get_bits():
+                            return await repo.fetch_plc_bits(hostname, resource_name=resource)
 
-                        # Print or process your results as needed
+                        # FIX: Use await instead of asyncio.run
+                        results = await get_bits()
+
                         print("Results from plc_bits view:")
                         for row in results:
                             print(row)
 
     @reactive.effect
-    def handle_plc_clicks():
+    async def handle_plc_clicks():
         sftp_hosts = config.get('sftp_hosts', [])
 
         if inputs.host_select() != "all":
@@ -313,16 +314,17 @@ def server(inputs, outputs, session):
                 if btn_input() > 0:
                     hostname = host.get("hostname", host.get("ip_address"))
                     print(f"PLC clicked: {hostname}")
-                    # Set PLC selection
                     selected_plc.set(hostname)
-                    # IMPORTANT: Clear resource selection when PLC changes
                     selected_resource.set(None)
                     selected_view.set("ALL")
 
-                    # Fetch and process plc_bits for this PLC only
-                    repo = PLCBitRepository(config_loader)
+                    repo = PLCBitRepositoryAsync(config_loader)
 
-                    results = repo.fetch_plc_bits(hostname)
+                    async def get_bits():
+                        return await repo.fetch_plc_bits(hostname)
+
+                    # FIX: Use await instead of asyncio.run
+                    results = await get_bits()
 
                     print("Results for PLC:", hostname)
                     for row in results:
