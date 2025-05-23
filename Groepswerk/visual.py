@@ -15,7 +15,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 yaml_path = os.path.join(script_dir, "..", "Groepswerk", "plc.yaml")
 
 try:
-    config_loader = ConfigLoader(yaml_path)
+    config_loader = ConfigLoader("plc.yaml")
     config = config_loader.config  # Store for backward compatibility
     host_options = config_loader.get_host_options()
 except FileNotFoundError:
@@ -221,7 +221,7 @@ def run_head_and_capture_output(config_obj, selected_host_value):
     try:
         if selected_host_value == "all":
             # For 'all', call it for every host in the yaml_file
-            for host in config_obj.get('sftp_hosts', []):
+            for host in config_obj.get_sftp_hosts():  # This is correct for ConfigLoader
                 host_name = host.get('hostname', host.get('ip_address'))
                 print(f"=== {host_name} ===")
                 head.run_main_with_host(config_obj, host_name)
@@ -345,7 +345,7 @@ def server(inputs, outputs, session):
         selected_host_value = inputs.host_select()
         # When "all" is selected, pass "all" directly to run_head_and_capture_output
         # instead of trying to use selected_plc() which could be None
-        captured_output = run_head_and_capture_output(config, selected_host_value)
+        captured_output = run_head_and_capture_output(config_loader, selected_host_value)
         terminal_text.set(captured_output or "[No output produced]")
 
     @outputs()
@@ -509,7 +509,7 @@ def server(inputs, outputs, session):
         config = test_config
         
         # Reinitialize config loader
-        config_loader = ConfigLoader(yaml_path)
+        config_loader = ConfigLoader("plc.yaml")
         
         # Update host options
         global host_options
