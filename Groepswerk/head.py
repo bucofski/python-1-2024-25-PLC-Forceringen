@@ -5,6 +5,7 @@ from class_making_querry import FileReader, DataProcessor
 from class_database import DatabaseSearcher
 from class_bit_conversion import BitConversion
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 
 def select_sftp_host(config):
@@ -19,14 +20,15 @@ def select_sftp_host(config):
         print(f"{i}. {disp_name} ({host.get('ip_address', 'no IP')})")
     print("all. Download from all hosts")
 
-    hostnames = [host.get('hostname') for host in sftp_hosts if 'hostname' in host]
+    # Create a lookup dictionary for quick hostname access
+    hostname_to_host = {host.get('hostname'): host for host in sftp_hosts if 'hostname' in host}
+    
     while True:
         selection = input(f"Type the hostname or 'all' to download from every host: ").strip()
         if selection == "all":
             return "all"
-        if selection in hostnames:
-            selected_host = next(host for host in sftp_hosts if host.get('hostname') == selection)
-            return selected_host
+        if selection in hostname_to_host:
+            return hostname_to_host[selection]
         else:
             print("Invalid selection. Please try again.")
 
@@ -41,10 +43,16 @@ def main():
     if not host_selection:
         return
 
-    # If user chooses "all", iterate over all hosts:
+    # If user chooses "all", iterate over all hosts using ThreadPoolExecutor
     if host_selection == "all":
-        for host_cfg in config.get("sftp_hosts", []):
-            run_main_with_host(config, host_cfg.get('hostname'))
+        hosts = config.get("sftp_hosts", [])
+        with ThreadPoolExecutor(max_workers=min(len(hosts), 5)) as executor:
+            futures = []
+            for host_cfg in hosts:
+                futures.append(executor.submit(run_main_with_host, config, host_cfg.get('hostname')))
+            
+            for future in futures:
+                future.result()  # Wait for completion and handle any exceptions
     else:
         host_cfg = host_selection
         run_main_with_host(config, host_cfg.get('hostname'))
@@ -67,7 +75,7 @@ def run_main_with_host(config, selected_host_name):
     username = host_cfg['username']
     password = host_cfg['password']
 
-    # UPDATED: get resources list and construct file paths dynamically
+    # Get resources list and construct file paths dynamically
     resources = host_cfg.get('resources', [])
     remote_files = [f"{host_cfg['hostname']}/{resource}/for.dat" for resource in resources]
 
@@ -79,6 +87,7 @@ def run_main_with_host(config, selected_host_name):
         print("Error: local_base_dir or hostname is missing in the configuration or selected host.")
         return
 
+    # Download all files in one connection
     client = SFTPClient(hostname, port, username, password)
     client.connect()
     client.download_files(remote_files, local_base_dir)
@@ -88,8 +97,14 @@ def run_main_with_host(config, selected_host_name):
         print(f"Error: Local directory '{local_base_dir}' does not exist after download.")
         return
 
+    # Cache common values
     department_name = config.get("department_name")
+    db_path = host_cfg.get('db_path')
+    if not db_path:
+        print("Error: db_path not specified for selected host.")
+        return
 
+    # Process each file sequentially to maintain the original output order
     for filename in os.listdir(local_base_dir):
         if filename.endswith(".dat"):
             try:
@@ -103,14 +118,13 @@ def run_main_with_host(config, selected_host_name):
             custom_query = f"SELECT *, SecondComment FROM {table_part} WHERE Name IN ({{placeholders}})"
             local_file_path = os.path.join(local_base_dir, filename)
             print(f"\n--- Processing {local_file_path} (table: {table_part}) ---")
+            
+            # Use the FileReader and DataProcessor more efficiently
             file_reader = FileReader(local_file_path)
             words_list = file_reader.read_and_parse_file()
             processed_list = list(DataProcessor.convert_and_process_list(words_list))
 
-            db_path = host_cfg.get('db_path')
-            if not db_path:
-                print("Error: db_path not specified for selected host.")
-                return
+            # Perform database search with a context manager
             with DatabaseSearcher(db_path) as searcher:
                 results = searcher.search(
                     processed_list,
@@ -119,6 +133,8 @@ def run_main_with_host(config, selected_host_name):
                     plc=plc,
                     resource=resource
                 )
+                
+            # Convert bits and print results
             bit_converter = BitConversion(results)
             common_elements = bit_converter.convert_variable_list()
             for sublist in common_elements:
