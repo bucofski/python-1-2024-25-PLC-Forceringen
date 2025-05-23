@@ -7,6 +7,7 @@ password: &password "aslpasupport"
 port: &port 22000
 
 sftp_hosts:
+
   - hostname: "AFV"
     ip_address: "10.243.13.85"
     port: *port
@@ -17,12 +18,13 @@ sftp_hosts:
       - "House"
       - "UitSeq"
     db_path: "//SVKWA337/Pilot_Project/Rxi/REG/controller.ctrl"
+
   - hostname: "REG"
     ip_address: "10.243.13.89"
     port: *port
     username: *username
     password: *password
-    remote_files:
+    resources:
       - "House"
     db_path: "//SVKWA337/Pilot_Project/Rxi/AFV/controller.ctrl"
 
@@ -35,6 +37,14 @@ sftp_hosts:
       - "NIET"
       - "KMOR"
       - "WT1"
-      - "CHIEL"
     db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
 
+
+### SQL_SERVER info
+# database views
+database:
+  host: "192.168.0.217"
+  port: 5432
+  database: "Forceringen"
+  user: "postgres"
+  password: "Test123"
