@@ -45,7 +45,7 @@ database:
   port: 5432
   database: "Forceringen"
   user: "postgres"
-  password: "Tovy9404"
+  password: "Test123"
 
 
 
