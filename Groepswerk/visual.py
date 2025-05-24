@@ -1,4 +1,5 @@
 from class_fetch_bits import PLCBitRepositoryAsync
+from insert_data_db_yaml import PLCResourceSync
 from class_config_loader import ConfigLoader
 from shiny import App, ui, render, reactive
 import psycopg2
