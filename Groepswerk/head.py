@@ -1,15 +1,16 @@
-import yaml
 import os
 from connect_to_PLC import SFTPClient
 from class_making_querry import FileReader, DataProcessor
 from class_database import DatabaseSearcher
 from class_bit_conversion import BitConversion
 from datetime import datetime
+from class_config_loader import ConfigLoader
 from class_writes_to_db import DataImporter  # Import the DataImporter class
 
 
-def select_sftp_host(config):
-    sftp_hosts = config.get("sftp_hosts", [])
+def select_sftp_host(config_loader):
+    """Select an SFTP host from the configuration."""
+    sftp_hosts = config_loader.get_sftp_hosts()
     if not sftp_hosts:
         print("No sftp_hosts found in configuration.")
         return None
@@ -20,38 +21,39 @@ def select_sftp_host(config):
         print(f"{i}. {disp_name} ({host.get('ip_address', 'no IP')})")
     print("all. Download from all hosts")
 
-    hostnames = [host.get('hostname') for host in sftp_hosts if 'hostname' in host]
+    # Create a lookup dictionary for quick hostname access
+    hostname_to_host = {host.get('hostname'): host for host in sftp_hosts if 'hostname' in host}
+
     while True:
         selection = input(f"Type the hostname or 'all' to download from every host: ").strip()
         if selection == "all":
             return "all"
-        if selection in hostnames:
-            selected_host = next(host for host in sftp_hosts if host.get('hostname') == selection)
-            return selected_host
+        if selection in hostname_to_host:
+            return hostname_to_host[selection]
         else:
             print("Invalid selection. Please try again.")
 
 
 def main():
     start = datetime.now()
-    # Load YAML and select SFTP host(s)
-    with open("plc.yaml", "r") as f:
-        config = yaml.safe_load(f)
 
-    host_selection = select_sftp_host(config)
+    # Load configuration using ConfigLoader instead of direct YAML loading
+    config_loader = ConfigLoader("plc.yaml")
+
+    host_selection = select_sftp_host(config_loader)
     if not host_selection:
         return
 
     # If user chooses "all", iterate over all hosts:
     if host_selection == "all":
-        for host_cfg in config.get("sftp_hosts", []):
-            run_main_with_host(config, host_cfg.get('hostname'))
+        for host_cfg in config_loader.get_sftp_hosts():
+            run_main_with_host(config_loader, host_cfg.get('hostname'))
     else:
         host_cfg = host_selection
-        run_main_with_host(config, host_cfg.get('hostname'))
+        run_main_with_host(config_loader, host_cfg.get('hostname'))
 
     # Get database configuration from plc.yaml
-    db_config = config.get('database', {})
+    db_config = config_loader.get('database', {})
     # Rename 'database' key to 'dbname' if needed for PostgreSQLManager
     if 'database' in db_config:
         db_config['dbname'] = db_config.pop('database')
@@ -61,7 +63,7 @@ def main():
     try:
         # Process each host configuration
         if host_selection == "all":
-            hosts_to_process = config.get("sftp_hosts", [])
+            hosts_to_process = config_loader.get("sftp_hosts", [])
         else:
             hosts_to_process = [host_cfg]
 
@@ -73,7 +75,7 @@ def main():
 
             # Get local directory for this host
             host_name = host_cfg.get('hostname')
-            base_local_dir = config.get('local_base_dir', '')
+            base_local_dir = config_loader.get('local_base_dir', '')
             if base_local_dir and host_name:
                 local_base_dir = os.path.join(base_local_dir, host_name)
                 if not os.path.exists(local_base_dir):
@@ -102,10 +104,10 @@ def main():
     print(f"\nTotal time taken: {(end - start).total_seconds()} seconds")
 
 
-def run_main_with_host(config, selected_host_name):
+def run_main_with_host(config_loader, selected_host_name):
     start = datetime.now()
 
-    sftp_hosts = config.get("sftp_hosts", [])
+    sftp_hosts = config_loader.get_sftp_hosts()
     host_cfg = next((host for host in sftp_hosts if host.get("hostname") == selected_host_name), None)
     if not host_cfg:
         print(f"Host {selected_host_name} not found.")
@@ -116,11 +118,11 @@ def run_main_with_host(config, selected_host_name):
     username = host_cfg['username']
     password = host_cfg['password']
 
-    # UPDATED: get resources list and construct file paths dynamically
+    # Get resources list and construct file paths dynamically
     resources = host_cfg.get('resources', [])
     remote_files = [f"{host_cfg['hostname']}/{resource}/for.dat" for resource in resources]
 
-    base_local_dir = config.get('local_base_dir', '')
+    base_local_dir = config_loader.get('local_base_dir', '')
     host_name = host_cfg.get('hostname')
     if base_local_dir and host_name:
         local_base_dir = os.path.join(base_local_dir, host_name)
@@ -137,7 +139,7 @@ def run_main_with_host(config, selected_host_name):
         print(f"Error: Local directory '{local_base_dir}' does not exist after download.")
         return
 
-    department_name = config.get("department_name")
+    department_name = config_loader.get("department_name")
 
     for filename in os.listdir(local_base_dir):
         if filename.endswith(".dat"):
