@@ -1,4 +1,3 @@
-import yaml
 import os
 import asyncio
 from connect_to_PLC import SFTPClient
@@ -97,7 +96,7 @@ def run_main_with_host(config_loader, selected_host_name):
 
     department_name = config_loader.get("department_name")
 
-    for filename in os.listdir(local_base_dir):
+    for filename in os.listdir(str(local_base_dir)):
         if filename.endswith(".dat"):
             try:
                 plc, resource = filename.replace('.dat', '').split('_', 1)
@@ -108,7 +107,7 @@ def run_main_with_host(config_loader, selected_host_name):
             table_part = resource  # The table is usually the resource part
 
             custom_query = f"SELECT *, SecondComment FROM {table_part} WHERE Name IN ({{placeholders}})"
-            local_file_path = os.path.join(local_base_dir, filename)
+            local_file_path = os.path.join(str(local_base_dir), filename)
             print(f"\n--- Processing {local_file_path} (table: {table_part}) ---")
             file_reader = FileReader(local_file_path)
             words_list = file_reader.read_and_parse_file()
@@ -140,8 +139,20 @@ def run_main_with_host(config_loader, selected_host_name):
                 writer.convert_variable_list = lambda: converted_results
                 await writer.write_to_database()
 
-            asyncio.run(run_bit_conversion_and_write())
-
+            # With this:
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Create task for background execution
+                    task = loop.create_task(run_bit_conversion_and_write())
+                    print("Database write task created")
+                else:
+                    asyncio.run(run_bit_conversion_and_write())
+            except RuntimeError:
+                asyncio.run(run_bit_conversion_and_write())
+                print("Database write task created")
+    end = datetime.now()
+    print(f"Total time taken: {(end - start).total_seconds()} seconds")
 
 if __name__ == "__main__":
     main()

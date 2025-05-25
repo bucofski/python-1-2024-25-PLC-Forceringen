@@ -1,4 +1,4 @@
-local_base_dir: "D:/Forcing_test"
+local_base_dir: "C:/python-1-2024-25-PLC-Forceringen/"
 department_name: "BT2"
 # this is so because if there is a difference in PLC connection
 # then it can be changed on PLC level
@@ -16,7 +16,9 @@ sftp_hosts:
       - "Insp"
       - "House"
       - "UitSeq"
-    db_path: "//SVKWA337/Pilot_Project/Rxi/REG/controller.ctrl"
+    #db_path: "//SVKWA337/Pilot_Project/Rxi/REG/controller.ctrl"
+    db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
+
   - hostname: "REG"
     ip_address: "10.243.13.89"
     port: *port
@@ -27,7 +29,7 @@ sftp_hosts:
     db_path: "//SVKWA337/Pilot_Project/Rxi/AFV/controller.ctrl"
 
   - hostname: "BTEST"
-    ip_address: "localhost"
+    ip_address: "192.168.0.217"
     port: "22"
     username: "pi"
     password: "raspberry"
@@ -35,14 +37,16 @@ sftp_hosts:
       - "NIET"
       - "KMOR"
       - "WT1"
-    db_path: "D:/controller_l.mdb"
-
+    db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
 
 ### SQL_SERVER info
 # database views
 database:
-  host: "localhost"
+  host: "192.168.0.217"
   port: 5432
-  database: "PLC_Forceringen"
+  database: "Forceringen"
   user: "postgres"
-  password: "123"
+  password: "Test123"
+
+
+
