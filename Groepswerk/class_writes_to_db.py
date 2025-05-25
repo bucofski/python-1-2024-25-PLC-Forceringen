@@ -53,7 +53,7 @@ class BitConversionDBWriter(BitConversion):
 
             # Call the batch procedure
             result = await conn.fetchrow(
-                "SELECT * FROM batch_write_plc_bits($1, $2, $3::jsonb)",
+                "SELECT * FROM upsert_plc_bits($1, $2, $3::jsonb)",
                 plc_name, resource_name, bits_json
             )
 
@@ -76,11 +76,12 @@ if __name__ == "__main__":
             words_list = FileReader("BTEST_NIET.dat").read_and_parse_file()
             data_list = list(DataProcessor.convert_and_process_list(words_list))
 
-            db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
+            db_path = r"D:/controller_l.mdb"
             custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
 
             with DatabaseSearcher(db_path) as searcher:
-                results = searcher.search(data_list, query_template=custom_query)
+                results = searcher.search(data_list, query_template=custom_query, department_name="bt2", plc="BTEST",
+                                          resource="NIET")
 
             # Run the database write in async context
             writer = BitConversionDBWriter(results, config_loader)
