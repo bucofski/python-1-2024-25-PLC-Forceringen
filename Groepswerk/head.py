@@ -1,11 +1,13 @@
 import yaml
 import os
+import asyncio
 from connect_to_PLC import SFTPClient
 from class_making_querry import FileReader, DataProcessor
 from class_database import DatabaseSearcher
 from class_bit_conversion import BitConversion
 from datetime import datetime
 from class_config_loader import ConfigLoader
+from class_writes_to_db import BitConversionDBWriter
 
 def select_sftp_host(config_loader):
     """Select an SFTP host from the configuration."""
@@ -124,13 +126,21 @@ def run_main_with_host(config_loader, selected_host_name):
                     plc=plc,
                     resource=resource
                 )
+
+            # Step 1: Convert and print
             bit_converter = BitConversion(results)
-            common_elements = bit_converter.convert_variable_list()
-            for sublist in common_elements:
+            converted_results = bit_converter.convert_variable_list()
+            for sublist in converted_results:
                 print(sublist)
 
-    end = datetime.now()
-    print(f"\nTime taken: {(end - start).total_seconds()} seconds")
+            # Step 2: Write using already converted results (no double conversion)
+            async def run_bit_conversion_and_write():
+                writer = BitConversionDBWriter(converted_results, config_loader)
+                # Skip convert_variable_list() call in writer
+                writer.convert_variable_list = lambda: converted_results
+                await writer.write_to_database()
+
+            asyncio.run(run_bit_conversion_and_write())
 
 
 if __name__ == "__main__":

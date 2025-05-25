@@ -24,7 +24,7 @@ class DatabaseSearcher:
         if self.conn:
             self.conn.close()
 
-    def search(self, item_list, query_template, department_name=None, plc=None, resource=None):
+    def search(self, item_list, query_template, department_name, plc, resource):
         """
         Searches the database with a given query template.
 
@@ -35,6 +35,7 @@ class DatabaseSearcher:
         :param resource: Resource (e.g. 'NIET')
         :return: List of dictionaries with search results.
         """
+
         if not item_list:
             print("Item list is empty. Query aborted.")
             return []
@@ -99,7 +100,7 @@ if __name__ == "__main__":
         words_list = file_reader.read_and_parse_file()
         processed_list = list(DataProcessor.convert_and_process_list(words_list))
         custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
-        results = searcher.search(processed_list, query_template=custom_query)
+        results = searcher.search(processed_list, query_template=custom_query, department_name="bt2", plc="BTEST", resource="NIET")
 
     end = datetime.now()
     print(f"Time taken: {(end - start).total_seconds()} seconds")
