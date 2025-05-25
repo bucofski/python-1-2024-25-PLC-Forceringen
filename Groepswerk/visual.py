@@ -1,5 +1,5 @@
-from insert_data_db_yaml import PLCResourceSync
 from class_fetch_bits import PLCBitRepositoryAsync
+from insert_data_db_yaml import PLCResourceSync
 from class_config_loader import ConfigLoader
 from shiny import App, ui, render, reactive
 import psycopg2
@@ -8,7 +8,6 @@ import yaml
 import sys
 import os
 import io
-
 
 # Read host options from YAML
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -500,17 +499,17 @@ def server(inputs, outputs, session):
     def update_configuration(yaml_content, test_config):
         """Save config to file and update global variables."""
         global config, config_loader
-        
+
         # Save to file
         config_loader.save_config(yaml_content)
         save_status.set("Configuration saved successfully!")
-        
+
         # Update global config
         config = test_config
-        
+
         # Reinitialize config loader
         config_loader = ConfigLoader("plc.yaml")
-        
+
         # Update host options
         global host_options
         host_options = config_loader.get_host_options()
@@ -519,21 +518,21 @@ def server(inputs, outputs, session):
         """Update UI components to reflect the new configuration."""
         # Update select component
         ui.update_select("host_select", choices=host_options)
-        
+
         # Handle resource selection if it no longer exists
         current_host = inputs.host_select()
         current_resource = selected_resource()
-        
+
         if current_host != "all" and current_resource is not None:
             host_cfg = next((host for host in config_loader.get_sftp_hosts()
                              if host.get('hostname') == current_host or
                              host.get('ip_address') == current_host), None)
-            
+
             if host_cfg:
                 resources = host_cfg.get('resources', [])
                 if current_resource not in resources:
                     selected_resource.set(None)
-        
+
         # Trigger resource buttons refresh
         resource_buttons_trigger.set(resource_buttons_trigger() + 1)
 
@@ -542,24 +541,24 @@ def server(inputs, outputs, session):
         try:
             # Update status
             save_status.set("Configuration saved. Synchronizing database...")
-            
+
             # Force UI update
             await session.send_custom_message("force_update", {})
-            
+
             # Get database connection
             repo = PLCBitRepositoryAsync(config_loader)
             conn = await repo._get_connection()
-            
+
             try:
                 # Sync database
                 plc_sync = PLCResourceSync(config_loader)
                 await plc_sync.sync_async(conn)
-                
+
                 # Update status
                 save_status.set("Configuration saved and database synchronized successfully!")
             finally:
                 await conn.close()
-                
+
         except ImportError as import_err:
             save_status.set(f"Configuration saved but couldn't import database module: {str(import_err)}")
         except psycopg2.OperationalError as db_conn_err:
