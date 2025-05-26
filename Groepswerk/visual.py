@@ -361,6 +361,8 @@ def server(inputs, outputs, session):
                     # FIX: Use await instead of asyncio.run
                     results = await get_bits()
 
+                    plc_bits_data.set(results)
+
                     print("Results for PLC:", hostname)
                     for row in results:
                         print(row)
@@ -538,11 +540,98 @@ def server(inputs, outputs, session):
             )
 
         elif selected_view() == "ALL":
-            return ui.tags.div(
-                ui.tags.h2("PLC View"),
-                ui.tags.p(f"Geselecteerde PLC: {selected_plc()}"),
-                ui.tags.p("PLC content goes here....")
+            # Get the data
+            data = plc_bits_data()
+
+            if not data:
+                return ui.tags.div(
+                    ui.tags.h2(f"Resource: {selected_resource()}"),
+                    ui.tags.p("No data available for this resource.")
+                )
+
+            # Create column headers
+            headers = [
+                "resource", "Bit Number", "KKS",
+                "Comment", "Second Comment", "Value",
+                "Forced At", "forced by"
+            ]
+
+            # Create the table header row
+            header_cells_plc = [ui.tags.th(header) for header in headers]
+            header_row = ui.tags.tr(*header_cells_plc)
+
+            # Create table rows for each data item
+            rows = []
+            for i, item in enumerate(data):
+                # Format datetime for display
+                forced_at = item.get('forced_at')
+                if forced_at:
+                    forced_at_str = forced_at.strftime("%d-%m-%Y")
+                else:
+                    forced_at_str = ""
+
+                # Format None values as empty strings
+                comment = item.get('comment', '')
+                if comment == 'None':
+                    comment = ''
+
+                second_comment = item.get('second_comment', '')
+                if second_comment == 'None':
+                    second_comment = ''
+
+
+
+                # Create row with cells
+                row_class = "force-active" if item.get('force_active') else ""
+
+
+                cells = [
+                    ui.tags.td(item.get('resource', '')),
+                    ui.tags.td(item.get('bit_number', '')),
+                    ui.tags.td(item.get('kks', '')),
+                    ui.tags.td(comment),
+                    ui.tags.td(second_comment),
+                    ui.tags.td(item.get('value', '')),
+                    ui.tags.td(forced_at_str),
+                    ui.tags.td(item.get('forced_by', ''))
+                ]
+
+                rows.append(ui.tags.tr(*cells, class_=row_class, id=f"bit_row_{i}"))
+
+            # Build the complete table
+            table = ui.tags.table(
+                ui.tags.thead(header_row),
+                ui.tags.tbody(*rows),
+                class_="data-grid"
             )
+
+            # Add CSS for styling the reason input field
+            input_css = ui.tags.style("""
+                input[type="text"] {
+                    width: 100%;
+                    padding: 6px 8px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    box-sizing: border-box;
+                }
+                input[type="text"]:focus {
+                    border-color: #FB4400;
+                    outline: none;
+                    box-shadow: 0 0 0 2px rgba(251, 68, 0, 0.25);
+                }
+            """)
+
+            # Return the final UI component
+            return ui.tags.div(
+                ui.tags.h2(f"PLC: {selected_plc()}"),
+                input_css,
+                ui.tags.div(
+                    table,
+                    class_="data-grid-container"
+                ),
+                ui.output_text("save_status")
+            )
+
         return None
 
     @outputs()
