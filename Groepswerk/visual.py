@@ -25,7 +25,32 @@ except FileNotFoundError:
 
 COLOR = "#FB4400"
 
-# Rests of the UI code stay the same
+# Add this to your UI section near other JavaScript code
+enter_key_js = ui.tags.script("""
+document.addEventListener('DOMContentLoaded', function() {
+    // Delegate event listener for all current and future text inputs
+    document.addEventListener('keydown', function(event) {
+        const target = event.target;
+        
+        // Check if it's a reason input field and Enter was pressed
+        if (target.id && target.id.startsWith('reason_input_') && event.key === 'Enter') {
+            event.preventDefault();
+            
+            // Get the index from the input ID
+            const index = target.id.split('_')[2];
+            
+            // Trigger a custom event that Shiny can listen for
+            Shiny.setInputValue('save_reason_triggered', {
+                index: index,
+                value: target.value,
+                timestamp: new Date().getTime()  // Force reactivity on repeated saves
+            });
+        }
+    });
+});
+""")
+
+# Add this to your app_ui near the end, before the final style
 app_ui = ui.tags.div(
     # CSS for sidebar and transitions - updated with font
     ui.tags.style(
@@ -208,6 +233,7 @@ app_ui = ui.tags.div(
         });
     });
     """),
+    enter_key_js,
     style="box-sizing: border-box; margin: 0; padding: 0;"
 )
 
@@ -242,6 +268,9 @@ def server(inputs, outputs, session):
     selected_view = reactive.Value("output")  # "output" or "Config"
     selected_resource = reactive.Value(None)
     selected_plc = reactive.Value(None)  # Only when used "all"
+
+    # Add this to store the plc_bits data
+    plc_bits_data = reactive.Value([])
 
     # Add this near the top of your server function where other reactive values are defined
     resource_buttons_trigger = reactive.Value(0)
@@ -285,7 +314,7 @@ def server(inputs, outputs, session):
                         print(f"Selected resource: {resource} on PLC: {hostname}")
                         print(f"Selected view: {selected_view()}")
 
-                        # --- NEW: Fetch plc_bits for this PLC and resource ---
+                        # --- Fetch plc_bits for this PLC and resource ---
                         repo = PLCBitRepositoryAsync(config_loader)
 
                         async def get_bits():
@@ -293,6 +322,9 @@ def server(inputs, outputs, session):
 
                         # FIX: Use await instead of asyncio.run
                         results = await get_bits()
+
+                        # Store the results in a reactive value
+                        plc_bits_data.set(results)
 
                         print("Results from plc_bits view:")
                         for row in results:
@@ -397,12 +429,103 @@ def server(inputs, outputs, session):
                 ),
                 style="width: 800px; margin: 0 auto; text-align: center;"  # Center the layout with a wider container
             )
+
         elif selected_view() == "resource":
-            return ui.tags.div(
-                ui.tags.h2("Resource"),
-                ui.tags.p(f"Geselecteerde resource: {selected_resource()}"),
-                ui.tags.p("Resource content goes here...")
+            # Get the data
+            data = plc_bits_data()
+
+            if not data:
+                return ui.tags.div(
+                    ui.tags.h2(f"Resource: {selected_resource()}"),
+                    ui.tags.p("No data available for this resource.")
+                )
+
+            # Create column headers
+            headers = [
+                "Bit Number", "KKS",
+                "Comment", "Second Comment", "Value",
+                "Forced At", "Reason"
+            ]
+
+            # Create the table header row
+            header_cells = [ui.tags.th(header) for header in headers]
+            header_row = ui.tags.tr(*header_cells)
+
+            # Create table rows for each data item
+            rows = []
+            for i, item in enumerate(data):
+                # Format datetime for display
+                forced_at = item.get('forced_at')
+                if forced_at:
+                    forced_at_str = forced_at.strftime("%Y-%m-%d")
+                else:
+                    forced_at_str = ""
+
+                # Format None values as empty strings
+                comment = item.get('comment', '')
+                if comment == 'None':
+                    comment = ''
+
+                second_comment = item.get('second_comment', '')
+                if second_comment == 'None':
+                    second_comment = ''
+
+                reason = item.get('reason', '')
+                if reason == 'None':
+                    reason = ''
+
+                # Create row with cells
+                row_class = "force-active" if item.get('force_active') else ""
+
+                # Create unique ID for reason input field based on row index
+                reason_id = f"reason_input_{i}"
+
+                cells = [
+                    ui.tags.td(item.get('bit_number', '')),
+                    ui.tags.td(item.get('kks', '')),
+                    ui.tags.td(comment),
+                    ui.tags.td(second_comment),
+                    ui.tags.td(item.get('value', '')),
+                    ui.tags.td(forced_at_str),
+                    ui.tags.td(ui.input_text(reason_id, "", value=reason, placeholder="Enter reason..."))
+                ]
+
+                rows.append(ui.tags.tr(*cells, class_=row_class, id=f"bit_row_{i}"))
+
+            # Build the complete table
+            table = ui.tags.table(
+                ui.tags.thead(header_row),
+                ui.tags.tbody(*rows),
+                class_="data-grid"
             )
+
+            # Add CSS for styling the reason input field
+            input_css = ui.tags.style("""
+        input[type="text"] {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus {
+            border-color: #FB4400;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(251, 68, 0, 0.25);
+        }
+    """)
+
+            # Return the final UI component
+            return ui.tags.div(
+                ui.tags.h2(f"Resource: {selected_resource()} on PLC: {selected_plc()}"),
+                input_css,
+                ui.tags.div(
+                    table,
+                    class_="data-grid-container"
+                ),
+                ui.output_text("save_status")
+            )
+
         elif selected_view() == "ALL":
             return ui.tags.div(
                 ui.tags.h2("PLC View"),
@@ -461,7 +584,7 @@ def server(inputs, outputs, session):
         return ui.tags.div(*buttons)
 
     # Inside the server function
-    save_status = reactive.Value("")
+    save_message = reactive.Value("")
 
     # --- Config Save Handler ---
     @reactive.effect
@@ -483,9 +606,13 @@ def server(inputs, outputs, session):
 
             # Step 4: Synchronize with database
             await sync_with_database()
+        
+            # Set success status
+            save_message.set("Configuration saved successfully!")
 
         except Exception as e:
-            save_status.set(f"Error saving file: {str(e)}")
+            # Update the reactive value instead of calling set() on an output
+            save_message.set(f"Error saving file: {str(e)}")
 
     def validate_yaml(yaml_content):
         """Validate that the provided content is valid YAML."""
@@ -493,7 +620,7 @@ def server(inputs, outputs, session):
             test_config = yaml.safe_load(yaml_content)
             return test_config
         except Exception as e:
-            save_status.set(f"Error: Invalid YAML format - {str(e)}")
+            save_message.set(f"Error: Invalid YAML format - {str(e)}")
             return None
 
     def update_configuration(yaml_content, test_config):
@@ -502,7 +629,7 @@ def server(inputs, outputs, session):
 
         # Save to file
         config_loader.save_config(yaml_content)
-        save_status.set("Configuration saved successfully!")
+        save_message.set("Configuration saved successfully!")
 
         # Update global config
         config = test_config
@@ -540,7 +667,7 @@ def server(inputs, outputs, session):
         """Synchronize the configuration with the database."""
         try:
             # Update status
-            save_status.set("Configuration saved. Synchronizing database...")
+            save_message.set("Configuration saved. Synchronizing database...")
 
             # Force UI update
             await session.send_custom_message("force_update", {})
@@ -555,24 +682,103 @@ def server(inputs, outputs, session):
                 await plc_sync.sync_async(conn)
 
                 # Update status
-                save_status.set("Configuration saved and database synchronized successfully!")
+                save_message.set("Configuration saved and database synchronized successfully!")
             finally:
                 await conn.close()
 
         except ImportError as import_err:
-            save_status.set(f"Configuration saved but couldn't import database module: {str(import_err)}")
+            save_message.set(f"Configuration saved but couldn't import database module: {str(import_err)}")
         except psycopg2.OperationalError as db_conn_err:
-            save_status.set(f"Configuration saved but database connection failed: {str(db_conn_err)}")
+            save_message.set(f"Configuration saved but database connection failed: {str(db_conn_err)}")
         except Exception as db_error:
             import traceback
             error_details = traceback.format_exc()
             print(f"Database sync error: {error_details}")
-            save_status.set(f"Configuration saved but database sync failed: {str(db_error)}")
+            save_message.set(f"Configuration saved but database sync failed: {str(db_error)}")
 
     @outputs()
     @render.text
     def save_status_output():
-        return save_status()
+        return save_message()
+
+    # Add this near where other reactive values are defined in the server function
+    save_message = reactive.Value("")
+
+    # Add these inside the server function to handle saving reasons on Enter key
+    @reactive.effect
+    @reactive.event(inputs.save_reason_triggered)
+    async def handle_save_reason_on_enter():
+        trigger_data = inputs.save_reason_triggered()
+        if not trigger_data:
+            return
+
+    # Get data from the triggered event
+        index = int(trigger_data.get('index', -1))
+        reason_text = trigger_data.get('value', '')
+
+    # Get the data
+        data = plc_bits_data()
+        if not data or index < 0 or index >= len(data):
+            save_message.set("Error: Invalid data index")
+            return
+
+    # Get the record that needs updating
+        record = data[index]
+        plc_name = selected_plc()
+        resource_name = selected_resource()
+        bit_number = record.get('bit_number')
+
+        try:
+            # Create DB connection
+            repo = PLCBitRepositoryAsync(config_loader)
+            conn = await repo._get_connection()
+
+            try:
+                # Update the reason in the database
+                result = await conn.execute("""
+                    UPDATE bit_force_reason 
+                    SET reason = $1
+                    FROM resource_bit rb
+                    JOIN plc p ON rb.plc_id = p.plc_id
+                    JOIN resource r ON rb.resource_id = r.resource_id
+                    WHERE bit_force_reason.bit_id = rb.bit_id
+                      AND p.plc_name = $2 
+                      AND r.resource_name = $3 
+                      AND rb.bit_number = $4
+                    RETURNING rb.bit_number
+                """, reason_text, plc_name, resource_name, bit_number)
+
+            # Check result and update status
+                if result:
+                    save_message.set(f"Reason saved for bit {bit_number}")
+                    print(f"Updated reason for bit {bit_number} to: {reason_text}")
+
+                # Update the local data to reflect changes
+                    record['reason'] = reason_text
+                    new_data = data.copy()
+                    new_data[index] = record
+                    plc_bits_data.set(new_data)
+                else:
+                    save_message.set(f"Failed to save reason for bit {bit_number}")
+            finally:
+                await conn.close()
+
+        except Exception as e:
+            save_message.set(f"Error: {str(e)}")
+            print(f"Database error: {str(e)}")
+
+# Add this reactive value and render function for status messages
+    save_message = reactive.Value("")
+
+    @outputs()
+    @render.text
+    def save_status():
+        message = save_message()
+        # Clear the message after 3 seconds
+        if message:
+            ui.notification_show(message, duration=3)
+            save_message.set("")
+        return ""
 
 
 app = App(app_ui, server)
