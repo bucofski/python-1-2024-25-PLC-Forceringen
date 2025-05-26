@@ -39,10 +39,15 @@ document.addEventListener('DOMContentLoaded', function() {
             // Get the index from the input ID
             const index = target.id.split('_')[2];
             
+            // Get the value from the forced_by field too
+            const forcedInput = document.getElementById('forced_input_' + index);
+            const forcedValue = forcedInput ? forcedInput.value : '';
+            
             // Trigger a custom event that Shiny can listen for
             Shiny.setInputValue('save_reason_triggered', {
                 index: index,
-                value: target.value,
+                reasonValue: target.value,
+                forcedValue: forcedValue,
                 timestamp: new Date().getTime()  // Force reactivity on repeated saves
             });
         }
@@ -444,7 +449,7 @@ def server(inputs, outputs, session):
             headers = [
                 "Bit Number", "KKS",
                 "Comment", "Second Comment", "Value",
-                "Forced At", "Reason"
+                "Forced At", "forced by", "Reason"
             ]
 
             # Create the table header row
@@ -457,7 +462,7 @@ def server(inputs, outputs, session):
                 # Format datetime for display
                 forced_at = item.get('forced_at')
                 if forced_at:
-                    forced_at_str = forced_at.strftime("%Y-%m-%d")
+                    forced_at_str = forced_at.strftime("%d-%m-%Y")
                 else:
                     forced_at_str = ""
 
@@ -470,6 +475,10 @@ def server(inputs, outputs, session):
                 if second_comment == 'None':
                     second_comment = ''
 
+                forced_by = item.get('forced_by', '')
+                if forced_by == 'None':
+                    forced_by = ''
+
                 reason = item.get('reason', '')
                 if reason == 'None':
                     reason = ''
@@ -479,6 +488,7 @@ def server(inputs, outputs, session):
 
                 # Create unique ID for reason input field based on row index
                 reason_id = f"reason_input_{i}"
+                forced_id = f"forced_input_{i}"
 
                 cells = [
                     ui.tags.td(item.get('bit_number', '')),
@@ -487,6 +497,7 @@ def server(inputs, outputs, session):
                     ui.tags.td(second_comment),
                     ui.tags.td(item.get('value', '')),
                     ui.tags.td(forced_at_str),
+                    ui.tags.td(ui.input_text(forced_id, "", value=forced_by, placeholder="Enter user...")),
                     ui.tags.td(ui.input_text(reason_id, "", value=reason, placeholder="Enter reason..."))
                 ]
 
@@ -712,22 +723,23 @@ def server(inputs, outputs, session):
         if not trigger_data:
             return
 
-    # Get data from the triggered event
+        # Get data from the triggered event
         index = int(trigger_data.get('index', -1))
-        reason_text = trigger_data.get('value', '')
+        reason_text = trigger_data.get('reasonValue', '')
+        forced_text = trigger_data.get('forcedValue', '')
 
-    # Get the data
+        # Get the data
         data = plc_bits_data()
         if not data or index < 0 or index >= len(data):
             save_message.set("Error: Invalid data index")
             return
 
-    # Get the record that needs updating
+        # Get the record that needs updating
         record = data[index]
-        plc_name = selected_plc()
-        resource_name = selected_resource()
+        plc_name = selected_plc.get()
+        resource_name = selected_resource.get()
         bit_number = record.get('bit_number')
-
+        print(f"Saving reason for bit {bit_number} on PLC {plc_name} resource {resource_name}...")
         try:
             # Create DB connection
             repo = PLCBitRepositoryAsync(config_loader)
@@ -735,26 +747,19 @@ def server(inputs, outputs, session):
 
             try:
                 # Update the reason in the database
-                result = await conn.execute("""
-                    UPDATE bit_force_reason 
-                    SET reason = $1
-                    FROM resource_bit rb
-                    JOIN plc p ON rb.plc_id = p.plc_id
-                    JOIN resource r ON rb.resource_id = r.resource_id
-                    WHERE bit_force_reason.bit_id = rb.bit_id
-                      AND p.plc_name = $2 
-                      AND r.resource_name = $3 
-                      AND rb.bit_number = $4
-                    RETURNING rb.bit_number
-                """, reason_text, plc_name, resource_name, bit_number)
-
-            # Check result and update status
+                result = await conn.fetchrow(
+                            "SELECT * FROM insert_force_reason($1, $2, $3, $4, $5)",
+                            plc_name, resource_name, bit_number, reason_text, forced_text 
+                )
+                # Check result and update status
                 if result:
                     save_message.set(f"Reason saved for bit {bit_number}")
                     print(f"Updated reason for bit {bit_number} to: {reason_text}")
+                    print(f"Updated forced_by for bit {bit_number} to: {forced_text}")
 
-                # Update the local data to reflect changes
+                    # Update the local data to reflect changes
                     record['reason'] = reason_text
+                    record['forced_by'] = forced_text
                     new_data = data.copy()
                     new_data[index] = record
                     plc_bits_data.set(new_data)
