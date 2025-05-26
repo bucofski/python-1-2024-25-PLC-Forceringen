@@ -220,13 +220,13 @@ def run_head_and_capture_output(config_obj, selected_host_value):
     try:
         if selected_host_value == "all":
             # For 'all', call it for every host in the yaml_file
-            for host in config_obj.get_sftp_hosts():  # This is correct for ConfigLoader
+            for host in config_obj.get_sftp_hosts():
                 host_name = host.get('hostname', host.get('ip_address'))
                 print(f"=== {host_name} ===")
-                head.run_main_with_host(config_obj, host_name)
+                head.run_main_with_host(config_obj, host_name, is_gui_context=True)
                 print()
         else:
-            head.run_main_with_host(config_obj, selected_host_value)
+            head.run_main_with_host(config_obj, selected_host_value, is_gui_context=True)
     except Exception as e:
         print(f"Error: {e}")
     finally:
