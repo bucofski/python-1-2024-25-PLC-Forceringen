@@ -1,0 +1,11 @@
+{'name_id': 'G00000', 'KKS': 'House.Output.VrijgaveBewegenKoppelzoneMachineOnderdelen', 'Comment': 'None', 'Second_comment': 'None', 'VAR_Type': 'LINT', 'Value': 0, 'department_name': None, 'PLC': None, 'resource': None}
+{'name_id': 'R01418', 'KKS': 'SIDTOVY.Test.Override1', 'Comment': 'None', 'Second_comment': 'None', 'VAR_Type': 'REAL', 'Value': '888.0', 'department_name': None, 'PLC': None, 'resource': None}
+{'name_id': 'R01419', 'KKS': 'SIDTOVY.Test.Override2', 'Comment': 'None', 'Second_comment': 'None', 'VAR_Type': 'REAL', 'Value': '12345.673828125', 'department_name': None, 'PLC': None, 'resource': None}
+{'name_id': 'R01420', 'KKS': 'SIDTOVY.Test.Override3', 'Comment': 'None', 'Second_comment': 'None', 'VAR_Type': 'REAL', 'Value': '12345.0', 'department_name': None, 'PLC': None, 'resource': None}
+{'name_id': 'W00872', 'KKS': 'PilootTD.Interlock.VrijgaveBewegen_KOPPELZO', 'Comment': 'Vrijgave Bewegen Koppelzone', 'Second_comment': '[TD2,TDS,1201]', 'VAR_Type': 'BOOL', 'Value': False, 'department_name': None, 'PLC': None, 'resource': None}
+{'name_id': 'W01544', 'KKS': 'PilootTD.Interlock.VrijgaveTrekOpbouw_KOPPELZO_Safety', 'Comment': 'Vrijgave TrekOpbouw Koppelzone van Safety', 'Second_comment': '[TD2,TDS,10112]', 'VAR_Type': 'BOOL', 'Value': False, 'department_name': None, 'PLC': None, 'resource': None}
+{'name_id': 'W01595', 'KKS': 'HMI.PilootTD.11221', 'Comment': 'None', 'Second_comment': 'None', 'VAR_Type': 'LINT', 'Value': 65535, 'department_name': None, 'PLC': None, 'resource': None}
+{'name_id': 'W01596', 'KKS': 'HMI.PilootTD.11222', 'Comment': 'None', 'Second_comment': 'None', 'VAR_Type': 'LINT', 'Value': 16512, 'department_name': None, 'PLC': None, 'resource': None}
+{'name_id': 'W06219', 'KKS': 'SIDTOVY.Test.Override4', 'Comment': 'None', 'Second_comment': 'None', 'VAR_Type': 'REAL', 'Value': '124.0', 'department_name': None, 'PLC': None, 'resource': None}
+{'name_id': 'W06220', 'KKS': 'SIDTOVY.Test.Override5', 'Comment': 'None', 'Second_comment': 'None', 'VAR_Type': 'REAL', 'Value': '125.0', 'department_name': None, 'PLC': None, 'resource': None}
+{'name_id': 'W06221', 'KKS': 'SIDTOVY.Test.Override6', 'Comment': 'None', 'Second_comment': 'None', 'VAR_Type': 'REAL', 'Value': '112.0', 'department_name': None, 'PLC': None, 'resource': None}
