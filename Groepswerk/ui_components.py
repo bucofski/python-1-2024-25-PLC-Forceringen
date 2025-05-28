@@ -48,7 +48,7 @@ def create_resource_buttons_ui(config, inputs, selected_resource, selected_plc):
 
             plc_buttons.append(
                 ui.input_action_button(f"plc_{i}", hostname,
-                                       class_=class_name, style="width:90%; margin-bottom:8px;")
+                                       class_="button button1", style="width:90%; margin-bottom:8px;")
             )
 
         if not plc_buttons:
@@ -73,7 +73,7 @@ def create_resource_buttons_ui(config, inputs, selected_resource, selected_plc):
             class_name += " selected"
         buttons.append(
             ui.input_action_button(btn_id, resource,
-                                   class_=class_name, style="width:90%; margin-bottom:8px;")
+                                   class_="button button1", style="width:90%; margin-bottom:8px;")
         )
     return ui.tags.div(*buttons)
 
