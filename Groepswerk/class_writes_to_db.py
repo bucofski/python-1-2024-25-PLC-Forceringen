@@ -103,7 +103,7 @@ if __name__ == "__main__":
             words_list = FileReader("BTEST_NIET.dat").read_and_parse_file()
             data_list = list(DataProcessor.convert_and_process_list(words_list))
 
-            db_path = r"D:/controller_l.mdb"
+            db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
             custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
 
             with DatabaseSearcher(db_path) as searcher:
