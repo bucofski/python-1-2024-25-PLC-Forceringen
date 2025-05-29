@@ -60,25 +60,26 @@ def server(inputs, outputs, session):
         print("Selected view is:", selected_view())
 
     # Create event handlers using server functions
-    handle_resource_clicks = create_resource_click_handler(
+    create_resource_click_handler(
         config, inputs, selected_resource, selected_plc, selected_view, plc_bits_data, config_loader
     )
-    
-    handle_plc_clicks = create_plc_click_handler(
+
+    create_plc_click_handler(
         config, inputs, selected_plc, selected_resource, selected_view, plc_bits_data, config_loader
     )
-    
-    handle_detail_clicks = create_detail_click_handler(
+
+    create_detail_click_handler(
         plc_bits_data, inputs, selected_bit_detail, selected_view, bit_history_data, config_loader, selected_plc
     )
-    
-    handle_save_reason_on_enter = create_save_reason_handler(
-        inputs, plc_bits_data, selected_plc, selected_resource, save_message, config_loader
-    )
-    
-    handle_back_button = create_back_button_handler(
-        inputs, selected_resource, selected_view
-    )
+
+    create_save_reason_handler(
+            inputs, plc_bits_data, selected_plc, selected_resource, save_message, config_loader
+        )
+
+    create_back_button_handler(
+            inputs, selected_resource, selected_view
+        )
+
 
     @outputs()
     @render.text

@@ -151,19 +151,23 @@ async def fetch_bit_history(bit_data, config_loader, selected_plc, bit_history_d
         print(f"Error fetching bit history: {str(e)}")
         bit_history_data.set([])
 
-def create_resource_click_handler(config, inputs, selected_resource, selected_plc, selected_view, plc_bits_data, config_loader):
+
+def create_resource_click_handler(config, inputs, selected_resource, selected_plc, selected_view, plc_bits_data,
+                                  config_loader):
     """Create handler for resource button clicks"""
+
     @reactive.effect
     async def handle_resource_clicks():
         sftp_hosts = config.get('sftp_hosts', [])
         selected_host_val = inputs.host_select()
 
-        # Filter the right host(s)
+        # Only active when a specific host is selected (not "all" or "detail")
         if selected_host_val == "all":
-            hosts = sftp_hosts
-        else:
-            hosts = [h for h in sftp_hosts if
-                     h.get('hostname') == selected_host_val or h.get('ip_address') == selected_host_val]
+            return
+
+        # Filter the right host(s)
+        hosts = [h for h in sftp_hosts if
+                 h.get('hostname') == selected_host_val or h.get('ip_address') == selected_host_val]
 
         for i, host in enumerate(hosts):
             resources = host.get('resources', [])
@@ -194,20 +198,24 @@ def create_resource_click_handler(config, inputs, selected_resource, selected_pl
 
     return handle_resource_clicks
 
-def create_plc_click_handler(config, inputs, selected_plc, selected_resource, selected_view, plc_bits_data, config_loader):
+
+def create_plc_click_handler(config, inputs, selected_plc, selected_resource, selected_view, plc_bits_data,
+                             config_loader):
     """Create handler for PLC button clicks"""
+
     @reactive.effect
     async def handle_plc_clicks():
         sftp_hosts = config.get('sftp_hosts', [])
 
+        # Only active when "all" is selected
         if inputs.host_select() != "all":
-            return  # only active when "all" is selected
+            return
 
         for i, host in enumerate(sftp_hosts):
             btn_id = f"plc_{i}"
             if hasattr(inputs, btn_id):
                 btn_input = getattr(inputs, btn_id)
-                if btn_input() > 0:
+                if btn_input() > 0 and inputs.host_select != "detail":
                     hostname = host.get("hostname", host.get("ip_address"))
                     print(f"PLC clicked: {hostname}")
                     selected_plc.set(hostname)
@@ -228,16 +236,23 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
 
     return handle_plc_clicks
 
-def create_detail_click_handler(plc_bits_data, inputs, selected_bit_detail, selected_view, bit_history_data, config_loader, selected_plc):
+
+def create_detail_click_handler(plc_bits_data, inputs, selected_bit_detail, selected_view, bit_history_data,
+                                config_loader, selected_plc):
     """Create handler for detail button clicks"""
+
     @reactive.effect
     async def handle_detail_clicks():
+        # Only active when NOT on "all" view (detail buttons appear in resource and ALL views)
+        if inputs.host_select() == "detail" or (inputs.host_select() != "all" and inputs.host_select() != "resource"):
+            return
+
         data = plc_bits_data()
         for i, item in enumerate(data):
             detail_btn_id = f"detail_btn_{i}"
             if hasattr(inputs, detail_btn_id):
                 btn_input = getattr(inputs, detail_btn_id)
-                if btn_input() > 0:
+                if btn_input() > 0 and inputs.host_select != "all" and inputs.host_select() != "resource":
                     selected_bit_detail.set(item)
                     selected_view.set("detail")
                     print(f"Detail view for bit: {item.get('bit_number', '')}")
