@@ -175,7 +175,7 @@ def create_resource_click_handler(config, inputs, selected_resource, selected_pl
                 btn_id = f"resource_{j}"
                 if hasattr(inputs, btn_id):
                     btn_input = getattr(inputs, btn_id)
-                    if btn_input() > 0:
+                    if btn_input() > 0 and inputs.host_select != "detail":
                         hostname = host.get("hostname", host.get("ip_address"))
                         selected_resource.set(resource)
                         selected_plc.set(hostname)
@@ -215,6 +215,7 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
             btn_id = f"plc_{i}"
             if hasattr(inputs, btn_id):
                 btn_input = getattr(inputs, btn_id)
+                print(btn_input())
                 if btn_input() > 0 and inputs.host_select != "detail":
                     hostname = host.get("hostname", host.get("ip_address"))
                     print(f"PLC clicked: {hostname}")
@@ -233,6 +234,10 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
                     print("Results for PLC:", hostname)
                     for row in results:
                         print(row)
+                elif btn_input() > 0 and inputs.host_select == "detail":
+                    selected_view.set("resource")
+                    print(selected_view)
+
 
     return handle_plc_clicks
 
@@ -244,7 +249,7 @@ def create_detail_click_handler(plc_bits_data, inputs, selected_bit_detail, sele
     @reactive.effect
     async def handle_detail_clicks():
         # Only active when NOT on "all" view (detail buttons appear in resource and ALL views)
-        if inputs.host_select() == "detail" or (inputs.host_select() != "all" and inputs.host_select() != "resource"):
+        if inputs.host_select() == "detail" :
             return
 
         data = plc_bits_data()
