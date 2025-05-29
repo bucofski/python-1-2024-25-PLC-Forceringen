@@ -64,7 +64,7 @@ SELECT
     rb.kks,
     bfr.forced_at,
     bfr.deforced_at,
-	bfr.forced_by,
+    bfr.forced_by,
     bfr.reason
 FROM (
     SELECT *,

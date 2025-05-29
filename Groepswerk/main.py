@@ -30,12 +30,14 @@ def server(inputs, outputs, session):
     # Reactive values
     assert session
     terminal_text = reactive.Value("")
-    selected_view = reactive.Value("output")  # "output" or "Config"
+    selected_view = reactive.Value("output")  # "output", "Config", "resource", "ALL", or "detail"
     selected_resource = reactive.Value(None)
     selected_plc = reactive.Value(None)  # Only when used "all"
     plc_bits_data = reactive.Value([])
     resource_buttons_trigger = reactive.Value(0)
     save_message = reactive.Value("")
+    selected_bit_detail = reactive.Value(None)  # Store selected bit for detail view
+    bit_history_data = reactive.Value([])  # Store history data for detail view
 
     # View-switching logic
     @reactive.effect
@@ -118,6 +120,60 @@ def server(inputs, outputs, session):
                     print("Results for PLC:", hostname)
                     for row in results:
                         print(row)
+
+    # Handle detail button clicks
+    @reactive.effect
+    async def handle_detail_clicks():
+        data = plc_bits_data()
+        for i, item in enumerate(data):
+            detail_btn_id = f"detail_btn_{i}"
+            if hasattr(inputs, detail_btn_id):
+                btn_input = getattr(inputs, detail_btn_id)
+                if btn_input() > 0:
+                    selected_bit_detail.set(item)
+                    selected_view.set("detail")
+                    print(f"Detail view for bit: {item.get('bit_number', '')}")
+
+                    # Fetch history data for this bit
+                    await fetch_bit_history(item)
+
+    async def fetch_bit_history(bit_data):
+        """Fetch the last 5 force reasons for the selected bit"""
+        try:
+            repo = PLCBitRepositoryAsync(config_loader)
+            conn = await repo._get_connection()
+
+            try:
+                plc_name = bit_data.get('PLC') or selected_plc()
+                resource_name = bit_data.get('resource')
+                bit_number = bit_data.get('bit_number')
+
+                # Query the last_5_force_reasons_per_bit view
+                history_query = """
+                    SELECT *
+                    FROM last_5_force_reasons_per_bit
+                    WHERE PLC = $1
+                      AND resource = $2
+                      AND bit_number = $3
+                    ORDER BY forced_at DESC;
+                """
+
+                history_results = await conn.fetch(history_query, plc_name, resource_name, bit_number)
+
+                # Convert to list of dicts
+                history_data = []
+                for row in history_results:
+                    history_data.append(dict(row))
+
+                bit_history_data.set(history_data)
+                print(f"Fetched {len(history_data)} history records for bit {bit_number}")
+
+            finally:
+                await conn.close()
+
+        except Exception as e:
+            print(f"Error fetching bit history: {str(e)}")
+            bit_history_data.set([])
 
     @outputs()
     @render.text
@@ -203,11 +259,11 @@ def server(inputs, outputs, session):
                     ui.tags.p("No data available for this resource.")
                 )
 
-            # Create column headers
+            # Create column headers - added "Details" column
             headers = [
                 "Bit Number", "KKS",
                 "Comment", "Second Comment", "Value",
-                "Forced At", "forced by", "Reason"
+                "Forced At", "forced by", "Reason", "Details"
             ]
 
             # Create the table header row
@@ -247,6 +303,7 @@ def server(inputs, outputs, session):
                 # Create unique ID for reason input field based on row index
                 reason_id = f"reason_input_{i}"
                 forced_id = f"forced_input_{i}"
+                detail_btn_id = f"detail_btn_{i}"
 
                 cells = [
                     ui.tags.td(item.get('bit_number', '')),
@@ -256,7 +313,13 @@ def server(inputs, outputs, session):
                     ui.tags.td(item.get('value', '')),
                     ui.tags.td(forced_at_str),
                     ui.tags.td(ui.input_text(forced_id, "", value=forced_by, placeholder="Enter user...")),
-                    ui.tags.td(ui.input_text(reason_id, "", value=reason, placeholder="Enter reason..."))
+                    ui.tags.td(ui.input_text(reason_id, "", value=reason, placeholder="Enter reason...")),
+                    ui.tags.td(ui.input_action_button(
+                        detail_btn_id,
+                        "View Details",
+                        class_="btn btn-primary btn-sm",
+                        style="padding: 4px 8px; font-size: 12px;"
+                    ))
                 ]
 
                 rows.append(ui.tags.tr(*cells, class_=row_class, id=f"bit_row_{i}"))
@@ -282,6 +345,11 @@ def server(inputs, outputs, session):
             outline: none;
             box-shadow: 0 0 0 2px rgba(251, 68, 0, 0.25);
         }
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 3px;
+        }
     """)
 
             # Return the final UI component
@@ -305,11 +373,11 @@ def server(inputs, outputs, session):
                     ui.tags.p("No data available for this resource.")
                 )
 
-            # Create column headers
+            # Create column headers - added "Details" column
             headers = [
                 "resource", "Bit Number", "KKS",
                 "Comment", "Second Comment", "Value",
-                "Forced At", "forced by"
+                "Forced At", "forced by", "Details"
             ]
 
             # Create the table header row
@@ -337,6 +405,7 @@ def server(inputs, outputs, session):
 
                 # Create row with cells
                 row_class = "force-active" if item.get('force_active') else ""
+                detail_btn_id = f"detail_btn_{i}"
 
                 cells = [
                     ui.tags.td(item.get('resource', '')),
@@ -346,7 +415,13 @@ def server(inputs, outputs, session):
                     ui.tags.td(second_comment),
                     ui.tags.td(item.get('value', '')),
                     ui.tags.td(forced_at_str),
-                    ui.tags.td(item.get('forced_by', ''))
+                    ui.tags.td(item.get('forced_by', '')),
+                    ui.tags.td(ui.input_action_button(
+                        detail_btn_id,
+                        "View Details",
+                        class_="btn btn-primary btn-sm",
+                        style="padding: 4px 8px; font-size: 12px;"
+                    ))
                 ]
 
                 rows.append(ui.tags.tr(*cells, class_=row_class, id=f"bit_row_{i}"))
@@ -372,6 +447,11 @@ def server(inputs, outputs, session):
                     outline: none;
                     box-shadow: 0 0 0 2px rgba(251, 68, 0, 0.25);
                 }
+                .btn-sm {
+                    padding: 4px 8px;
+                    font-size: 12px;
+                    border-radius: 3px;
+                }
             """)
 
             # Return the final UI component
@@ -385,7 +465,204 @@ def server(inputs, outputs, session):
                 ui.output_text("save_status")
             )
 
+        elif selected_view() == "detail":
+            # Detail view for a specific bit
+            bit_data = selected_bit_detail()
+            history_data = bit_history_data()
+
+            if not bit_data:
+                return ui.tags.div(
+                    ui.tags.h2("Detail View"),
+                    ui.tags.p("No bit selected for detail view.")
+                )
+
+            # Format datetime for display
+            forced_at = bit_data.get('forced_at')
+            if forced_at:
+                forced_at_str = forced_at.strftime("%d-%m-%Y %H:%M:%S")
+            else:
+                forced_at_str = "Not forced"
+
+            # Create a back button to return to previous view
+            back_button = ui.input_action_button(
+                "back_to_list",
+                "← Back to List",
+                class_="btn btn-secondary",
+                style="margin-bottom: 20px;"
+            )
+
+            # Create detail information cards
+            detail_info = ui.tags.div(
+                ui.tags.div(
+                    ui.tags.h3("Bit Information"),
+                    ui.tags.div(
+                        ui.tags.div(
+                            ui.tags.strong("Bit Number: "), bit_data.get('bit_number', 'N/A'),
+                            style="margin-bottom: 10px;"
+                        ),
+                        ui.tags.div(
+                            ui.tags.strong("KKS: "), bit_data.get('kks', 'N/A'),
+                            style="margin-bottom: 10px;"
+                        ),
+                        ui.tags.div(
+                            ui.tags.strong("Resource: "), bit_data.get('resource', 'N/A'),
+                            style="margin-bottom: 10px;"
+                        ),
+                        ui.tags.div(
+                            ui.tags.strong("Value: "), str(bit_data.get('value', 'N/A')),
+                            style="margin-bottom: 10px;"
+                        ),
+                        ui.tags.div(
+                            ui.tags.strong("Force Active: "),
+                            "Yes" if bit_data.get('force_active') else "No",
+                            style="margin-bottom: 10px;"
+                        ),
+                        style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;"
+                    )
+                ),
+                ui.tags.div(
+                    ui.tags.h3("Comments"),
+                    ui.tags.div(
+                        ui.tags.div(
+                            ui.tags.strong("Comment: "),
+                            bit_data.get('comment', 'None') if bit_data.get('comment') != 'None' else 'No comment',
+                            style="margin-bottom: 10px;"
+                        ),
+                        ui.tags.div(
+                            ui.tags.strong("Second Comment: "),
+                            bit_data.get('second_comment', 'None') if bit_data.get('second_comment') != 'None' else 'No comment',
+                            style="margin-bottom: 10px;"
+                        ),
+                        style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;"
+                    )
+                ),
+                ui.tags.div(
+                    ui.tags.h3("Current Force Information"),
+                    ui.tags.div(
+                        ui.tags.div(
+                            ui.tags.strong("Forced At: "), forced_at_str,
+                            style="margin-bottom: 10px;"
+                        ),
+                        ui.tags.div(
+                            ui.tags.strong("Forced By: "),
+                            bit_data.get('forced_by', 'None') if bit_data.get('forced_by') != 'None' else 'Not specified',
+                            style="margin-bottom: 10px;"
+                        ),
+                        ui.tags.div(
+                            ui.tags.strong("Reason: "),
+                            bit_data.get('reason', 'None') if bit_data.get('reason') != 'None' else 'No reason provided',
+                            style="margin-bottom: 10px;"
+                        ),
+                        style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;"
+                    )
+                )
+            )
+
+            # Create history section
+            if history_data:
+                # Create history table headers
+                history_headers = ["Forced At", "Deforced At", "Forced By", "Reason"]
+                history_header_cells = [ui.tags.th(header) for header in history_headers]
+                history_header_row = ui.tags.tr(*history_header_cells)
+
+                # Create history table rows
+                history_rows = []
+                for hist_item in history_data:
+                    # Format dates
+                    forced_at_hist = hist_item.get('forced_at')
+                    if forced_at_hist:
+                        forced_at_str_hist = forced_at_hist.strftime("%d-%m-%Y %H:%M:%S")
+                    else:
+                        forced_at_str_hist = "N/A"
+
+                    deforced_at_hist = hist_item.get('deforced_at')
+                    if deforced_at_hist:
+                        deforced_at_str_hist = deforced_at_hist.strftime("%d-%m-%Y %H:%M:%S")
+                    else:
+                        deforced_at_str_hist = "Still Active" if hist_item == history_data[0] else "N/A"
+
+                    # Format None values
+                    forced_by_hist = hist_item.get('forced_by', 'Unknown')
+                    if forced_by_hist == 'None':
+                        forced_by_hist = 'Unknown'
+
+                    reason_hist = hist_item.get('reason', 'No reason')
+                    if reason_hist == 'None':
+                        reason_hist = 'No reason'
+
+                    hist_cells = [
+                        ui.tags.td(forced_at_str_hist),
+                        ui.tags.td(deforced_at_str_hist),
+                        ui.tags.td(forced_by_hist),
+                        ui.tags.td(reason_hist)
+                    ]
+
+                    history_rows.append(ui.tags.tr(*hist_cells))
+
+                # Build the history table
+                history_table = ui.tags.table(
+                    ui.tags.thead(history_header_row),
+                    ui.tags.tbody(*history_rows),
+                    class_="data-grid",
+                    style="width: 100%; font-size: 14px;"
+                )
+
+                history_section = ui.tags.div(
+                    ui.tags.h3("Force History (Last 5 Records)"),
+                    ui.tags.div(
+                        history_table,
+                        style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto;"
+                    )
+                )
+            else:
+                history_section = ui.tags.div(
+                    ui.tags.h3("Force History"),
+                    ui.tags.div(
+                        ui.tags.p("No force history available for this bit."),
+                        style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;"
+                    )
+                )
+
+            # Add CSS for the history table
+            history_css = ui.tags.style("""
+                .data-grid th {
+                    background-color: #e9ecef;
+                    padding: 8px;
+                    text-align: left;
+                    border: 1px solid #dee2e6;
+                    font-weight: bold;
+                }
+                .data-grid td {
+                    padding: 8px;
+                    border: 1px solid #dee2e6;
+                    vertical-align: top;
+                }
+                .data-grid {
+                    border-collapse: collapse;
+                    margin: 0;
+                }
+            """)
+
+            return ui.tags.div(
+                back_button,
+                history_css,
+                ui.tags.h2(f"Detail View - Bit {bit_data.get('bit_number', 'N/A')}"),
+                detail_info,
+                history_section,
+                style="max-width: 1000px; margin: 0 auto;"
+            )
+
         return None
+
+    # Handle back button click
+    @reactive.effect
+    @reactive.event(inputs.back_to_list)
+    def handle_back_button():
+        # Return to the appropriate view based on what was selected
+        if selected_resource():
+            selected_view.set("resource")
+        else:
+            selected_view.set("ALL")
 
     # Update config save handler to use imported functions
     @reactive.effect
