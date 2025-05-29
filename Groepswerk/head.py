@@ -1,3 +1,4 @@
+import yaml
 import os
 import asyncio
 from connect_to_PLC import SFTPClient
