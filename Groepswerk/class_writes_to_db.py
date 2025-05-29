@@ -5,6 +5,7 @@ from class_config_loader import ConfigLoader
 from class_making_querry import DataProcessor, FileReader
 from class_database import DatabaseSearcher
 import asyncio
+import threading
 
 
 class BitConversionDBWriter(BitConversion):
@@ -68,6 +69,32 @@ class BitConversionDBWriter(BitConversion):
         finally:
             await conn.close()
 
+    def write_to_database_threaded(self):
+        """
+        Run the database write operation in a separate thread.
+        This avoids event loop conflicts when running in GUI contexts.
+        """
+        
+        def run_async_in_thread():
+            """Inner function to run in a separate thread"""
+            # Create a new event loop for this thread
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            
+            try:
+                # Run the async database operation to completion
+                return loop.run_until_complete(self.write_to_database())
+            finally:
+                loop.close()
+        
+        # Create and start a thread for the database operation
+        thread = threading.Thread(target=run_async_in_thread)
+        thread.start()
+        
+        # Wait for the thread to complete (blocks the calling thread)
+        thread.join()
+        print("Database write completed (via threading)")
+
 
 if __name__ == "__main__":
     async def main():
@@ -76,7 +103,7 @@ if __name__ == "__main__":
             words_list = FileReader("BTEST_NIET.dat").read_and_parse_file()
             data_list = list(DataProcessor.convert_and_process_list(words_list))
 
-            db_path = r"D:/controller_l.mdb"
+            db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
             custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
 
             with DatabaseSearcher(db_path) as searcher:

@@ -31,18 +31,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // Delegate event listener for all current and future text inputs
     document.addEventListener('keydown', function(event) {
         const target = event.target;
-
+        
         // Check if it's a reason input field and Enter was pressed
         if (target.id && target.id.startsWith('reason_input_') && event.key === 'Enter') {
             event.preventDefault();
-
+            
             // Get the index from the input ID
             const index = target.id.split('_')[2];
-
+            
             // Get the value from the forced_by field too
             const forcedInput = document.getElementById('forced_input_' + index);
             const forcedValue = forcedInput ? forcedInput.value : '';
-
+            
             // Trigger a custom event that Shiny can listen for
             Shiny.setInputValue('save_reason_triggered', {
                 index: index,
@@ -579,8 +579,11 @@ def server(inputs, outputs, session):
                 if second_comment == 'None':
                     second_comment = ''
 
+
+
                 # Create row with cells
                 row_class = "force-active" if item.get('force_active') else ""
+
 
                 cells = [
                     ui.tags.td(item.get('resource', '')),
@@ -703,7 +706,7 @@ def server(inputs, outputs, session):
 
             # Step 4: Synchronize with database
             await sync_with_database()
-
+        
             # Set success status
             save_message.set("Configuration saved successfully!")
 
@@ -834,8 +837,8 @@ def server(inputs, outputs, session):
             try:
                 # Update the reason in the database
                 result = await conn.fetchrow(
-                    "SELECT * FROM insert_force_reason($1, $2, $3, $4, $5)",
-                    plc_name, resource_name, bit_number, reason_text, forced_text
+                            "SELECT * FROM insert_force_reason($1, $2, $3, $4, $5)",
+                            plc_name, resource_name, bit_number, reason_text, forced_text 
                 )
                 # Check result and update status
                 if result:
@@ -858,7 +861,7 @@ def server(inputs, outputs, session):
             save_message.set(f"Error: {str(e)}")
             print(f"Database error: {str(e)}")
 
-    # Add this reactive value and render function for status messages
+# Add this reactive value and render function for status messages
     save_message = reactive.Value("")
 
     @outputs()
