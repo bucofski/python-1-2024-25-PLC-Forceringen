@@ -234,9 +234,9 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
                     print("Results for PLC:", hostname)
                     for row in results:
                         print(row)
-                elif btn_input() > 0 and inputs.host_select == "detail":
-                    selected_view.set("resource")
-                    print(selected_view)
+                # elif btn_input() > 0 and inputs.host_select == "detail":
+                #     selected_view.set("resource")
+                #     print(selected_view)
 
 
     return handle_plc_clicks
