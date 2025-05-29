@@ -32,7 +32,7 @@ CREATE TABLE resource_bit (
 CREATE TABLE bit_force_reason (
     force_id SERIAL PRIMARY KEY,
     bit_id INTEGER NOT NULL REFERENCES resource_bit(bit_id) ON DELETE CASCADE,
-    reason TEXT NOT NULL,
+    reason TEXT,
     forced_by VARCHAR(100),
 	forced_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     deforced_at TIMESTAMP WITH TIME ZONE NULL
