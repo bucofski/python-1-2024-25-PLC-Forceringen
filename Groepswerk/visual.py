@@ -25,7 +25,37 @@ except FileNotFoundError:
 
 COLOR = "#FB4400"
 
-# Rests of the UI code stay the same
+# Add this to your UI section near other JavaScript code
+enter_key_js = ui.tags.script("""
+document.addEventListener('DOMContentLoaded', function() {
+    // Delegate event listener for all current and future text inputs
+    document.addEventListener('keydown', function(event) {
+        const target = event.target;
+
+        // Check if it's a reason input field and Enter was pressed
+        if (target.id && target.id.startsWith('reason_input_') && event.key === 'Enter') {
+            event.preventDefault();
+
+            // Get the index from the input ID
+            const index = target.id.split('_')[2];
+
+            // Get the value from the forced_by field too
+            const forcedInput = document.getElementById('forced_input_' + index);
+            const forcedValue = forcedInput ? forcedInput.value : '';
+
+            // Trigger a custom event that Shiny can listen for
+            Shiny.setInputValue('save_reason_triggered', {
+                index: index,
+                reasonValue: target.value,
+                forcedValue: forcedValue,
+                timestamp: new Date().getTime()  // Force reactivity on repeated saves
+            });
+        }
+    });
+});
+""")
+
+# Add this to your app_ui near the end, before the final style
 app_ui = ui.tags.div(
     # CSS for sidebar and transitions - updated with font
     ui.tags.style(
@@ -113,6 +143,63 @@ app_ui = ui.tags.div(
         .button1:hover {
           background-color: #90D5FF;
           color: white;
+        }
+        .detail-button {
+          background-color: #28a745;
+          color: white;
+          border: none;
+          padding: 4px 8px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 12px;
+          font-family: 'VAGRoundedLight';
+        }
+        .detail-button:hover {
+          background-color: #218838;
+        }
+        .detail-view {
+          background-color: #f8f9fa;
+          border: 1px solid #dee2e6;
+          border-radius: 8px;
+          padding: 20px;
+          margin: 20px 0;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .detail-view h3 {
+          color: #FB4400;
+          margin-top: 0;
+          border-bottom: 2px solid #FB4400;
+          padding-bottom: 10px;
+        }
+        .detail-field {
+          margin: 10px 0;
+          display: flex;
+          align-items: center;
+        }
+        .detail-label {
+          font-weight: bold;
+          width: 150px;
+          color: #495057;
+        }
+        .detail-value {
+          flex: 1;
+          padding: 5px;
+          background-color: white;
+          border: 1px solid #ced4da;
+          border-radius: 4px;
+        }
+        .back-button {
+          background-color: #6c757d;
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-family: 'VAGRoundedLight';
+          margin-bottom: 15px;
+        }
+        .back-button:hover {
+          background-color: #5a6268;
         }
         """
     ),
@@ -208,6 +295,7 @@ app_ui = ui.tags.div(
         });
     });
     """),
+    enter_key_js,
     style="box-sizing: border-box; margin: 0; padding: 0;"
 )
 
@@ -220,13 +308,13 @@ def run_head_and_capture_output(config_obj, selected_host_value):
     try:
         if selected_host_value == "all":
             # For 'all', call it for every host in the yaml_file
-            for host in config_obj.get_sftp_hosts():  # This is correct for ConfigLoader
+            for host in config_obj.get_sftp_hosts():
                 host_name = host.get('hostname', host.get('ip_address'))
                 print(f"=== {host_name} ===")
-                head.run_main_with_host(config_obj, host_name)
+                head.run_main_with_host(config_obj, host_name, is_gui_context=True)
                 print()
         else:
-            head.run_main_with_host(config_obj, selected_host_value)
+            head.run_main_with_host(config_obj, selected_host_value, is_gui_context=True)
     except Exception as e:
         print(f"Error: {e}")
     finally:
@@ -243,20 +331,29 @@ def server(inputs, outputs, session):
     selected_resource = reactive.Value(None)
     selected_plc = reactive.Value(None)  # Only when used "all"
 
+    # Add this to store the plc_bits data
+    plc_bits_data = reactive.Value([])
+
     # Add this near the top of your server function where other reactive values are defined
     resource_buttons_trigger = reactive.Value(0)
+
+    # Add reactive values for detail view
+    selected_bit_detail = reactive.Value(None)
+    detail_view_active = reactive.Value(False)
 
     # View-switching logic
     @reactive.effect
     @reactive.event(inputs.view_output)
     def _():
         selected_view.set("output")
+        detail_view_active.set(False)
         print("Selected view is:", selected_view())
 
     @reactive.effect
     @reactive.event(inputs.view_config)
     def _():
         selected_view.set("Config")
+        detail_view_active.set(False)
         print("Selected view is:", selected_view())
 
     @reactive.effect
@@ -282,10 +379,11 @@ def server(inputs, outputs, session):
                         selected_resource.set(resource)
                         selected_plc.set(hostname)
                         selected_view.set("resource")
+                        detail_view_active.set(False)
                         print(f"Selected resource: {resource} on PLC: {hostname}")
                         print(f"Selected view: {selected_view()}")
 
-                        # --- NEW: Fetch plc_bits for this PLC and resource ---
+                        # --- Fetch plc_bits for this PLC and resource ---
                         repo = PLCBitRepositoryAsync(config_loader)
 
                         async def get_bits():
@@ -293,6 +391,9 @@ def server(inputs, outputs, session):
 
                         # FIX: Use await instead of asyncio.run
                         results = await get_bits()
+
+                        # Store the results in a reactive value
+                        plc_bits_data.set(results)
 
                         print("Results from plc_bits view:")
                         for row in results:
@@ -315,6 +416,7 @@ def server(inputs, outputs, session):
                     selected_plc.set(hostname)
                     selected_resource.set(None)
                     selected_view.set("ALL")
+                    detail_view_active.set(False)
 
                     repo = PLCBitRepositoryAsync(config_loader)
 
@@ -324,9 +426,34 @@ def server(inputs, outputs, session):
                     # FIX: Use await instead of asyncio.run
                     results = await get_bits()
 
+                    plc_bits_data.set(results)
+
                     print("Results for PLC:", hostname)
                     for row in results:
                         print(row)
+
+    # Add handler for detail view buttons
+    @reactive.effect
+    async def handle_detail_clicks():
+        data = plc_bits_data()
+        if not data:
+            return
+
+        for i, item in enumerate(data):
+            detail_btn_id = f"detail_btn_{i}"
+            if hasattr(inputs, detail_btn_id):
+                btn_input = getattr(inputs, detail_btn_id)
+                if btn_input() > 0:
+                    selected_bit_detail.set(item)
+                    detail_view_active.set(True)
+                    print(f"Detail view for bit: {item.get('bit_number')}")
+
+    # Add handler for back button
+    @reactive.effect
+    @reactive.event(inputs.back_to_table)
+    def handle_back_to_table():
+        detail_view_active.set(False)
+        selected_bit_detail.set(None)
 
     @outputs()
     @render.text
@@ -397,19 +524,313 @@ def server(inputs, outputs, session):
                 ),
                 style="width: 800px; margin: 0 auto; text-align: center;"  # Center the layout with a wider container
             )
+
         elif selected_view() == "resource":
-            return ui.tags.div(
-                ui.tags.h2("Resource"),
-                ui.tags.p(f"Geselecteerde resource: {selected_resource()}"),
-                ui.tags.p("Resource content goes here...")
+            # Check if detail view is active
+            if detail_view_active():
+                return render_bit_detail_view()
+
+            # Get the data
+            data = plc_bits_data()
+
+            if not data:
+                return ui.tags.div(
+                    ui.tags.h2(f"Resource: {selected_resource()}"),
+                    ui.tags.p("No data available for this resource.")
+                )
+
+            # Create column headers
+            headers = [
+                "Bit Number", "KKS",
+                "Comment", "Second Comment", "Value",
+                "Forced At", "forced by", "Reason", "Actions"
+            ]
+
+            # Create the table header row
+            header_cells = [ui.tags.th(header) for header in headers]
+            header_row = ui.tags.tr(*header_cells)
+
+            # Create table rows for each data item
+            rows = []
+            for i, item in enumerate(data):
+                # Format datetime for display
+                forced_at = item.get('forced_at')
+                if forced_at:
+                    forced_at_str = forced_at.strftime("%d-%m-%Y")
+                else:
+                    forced_at_str = ""
+
+                # Format None values as empty strings
+                comment = item.get('comment', '')
+                if comment == 'None':
+                    comment = ''
+
+                second_comment = item.get('second_comment', '')
+                if second_comment == 'None':
+                    second_comment = ''
+
+                forced_by = item.get('forced_by', '')
+                if forced_by == 'None':
+                    forced_by = ''
+
+                reason = item.get('reason', '')
+                if reason == 'None':
+                    reason = ''
+
+                # Create row with cells
+                row_class = "force-active" if item.get('force_active') else ""
+
+                # Create unique ID for reason input field based on row index
+                reason_id = f"reason_input_{i}"
+                forced_id = f"forced_input_{i}"
+                detail_btn_id = f"detail_btn_{i}"
+
+                cells = [
+                    ui.tags.td(item.get('bit_number', '')),
+                    ui.tags.td(item.get('kks', '')),
+                    ui.tags.td(comment),
+                    ui.tags.td(second_comment),
+                    ui.tags.td(item.get('value', '')),
+                    ui.tags.td(forced_at_str),
+                    ui.tags.td(ui.input_text(forced_id, "", value=forced_by, placeholder="Enter user...")),
+                    ui.tags.td(ui.input_text(reason_id, "", value=reason, placeholder="Enter reason...")),
+                    ui.tags.td(ui.input_action_button(detail_btn_id, "Detail", class_="detail-button"))
+                ]
+
+                rows.append(ui.tags.tr(*cells, class_=row_class, id=f"bit_row_{i}"))
+
+            # Build the complete table
+            table = ui.tags.table(
+                ui.tags.thead(header_row),
+                ui.tags.tbody(*rows),
+                class_="data-grid"
             )
+
+            # Add CSS for styling the reason input field
+            input_css = ui.tags.style("""
+        input[type="text"] {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus {
+            border-color: #FB4400;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(251, 68, 0, 0.25);
+        }
+    """)
+
+            # Return the final UI component
+            return ui.tags.div(
+                ui.tags.h2(f"Resource: {selected_resource()} on PLC: {selected_plc()}"),
+                input_css,
+                ui.tags.div(
+                    table,
+                    class_="data-grid-container"
+                ),
+                ui.output_text("save_status")
+            )
+
         elif selected_view() == "ALL":
-            return ui.tags.div(
-                ui.tags.h2("PLC View"),
-                ui.tags.p(f"Geselecteerde PLC: {selected_plc()}"),
-                ui.tags.p("PLC content goes here....")
+            # Check if detail view is active
+            if detail_view_active():
+                return render_bit_detail_view()
+
+            # Get the data
+            data = plc_bits_data()
+
+            if not data:
+                return ui.tags.div(
+                    ui.tags.h2(f"Resource: {selected_resource()}"),
+                    ui.tags.p("No data available for this resource.")
+                )
+
+            # Create column headers
+            headers = [
+                "resource", "Bit Number", "KKS",
+                "Comment", "Second Comment", "Value",
+                "Forced At", "forced by", "Actions"
+            ]
+
+            # Create the table header row
+            header_cells_plc = [ui.tags.th(header) for header in headers]
+            header_row = ui.tags.tr(*header_cells_plc)
+
+            # Create table rows for each data item
+            rows = []
+            for i, item in enumerate(data):
+                # Format datetime for display
+                forced_at = item.get('forced_at')
+                if forced_at:
+                    forced_at_str = forced_at.strftime("%d-%m-%Y")
+                else:
+                    forced_at_str = ""
+
+                # Format None values as empty strings
+                comment = item.get('comment', '')
+                if comment == 'None':
+                    comment = ''
+
+                second_comment = item.get('second_comment', '')
+                if second_comment == 'None':
+                    second_comment = ''
+
+                # Create row with cells
+                row_class = "force-active" if item.get('force_active') else ""
+                detail_btn_id = f"detail_btn_{i}"
+
+                cells = [
+                    ui.tags.td(item.get('resource', '')),
+                    ui.tags.td(item.get('bit_number', '')),
+                    ui.tags.td(item.get('kks', '')),
+                    ui.tags.td(comment),
+                    ui.tags.td(second_comment),
+                    ui.tags.td(item.get('value', '')),
+                    ui.tags.td(forced_at_str),
+                    ui.tags.td(item.get('forced_by', '')),
+                    ui.tags.td(ui.input_action_button(detail_btn_id, "Detail", class_="detail-button"))
+                ]
+
+                rows.append(ui.tags.tr(*cells, class_=row_class, id=f"bit_row_{i}"))
+
+            # Build the complete table
+            table = ui.tags.table(
+                ui.tags.thead(header_row),
+                ui.tags.tbody(*rows),
+                class_="data-grid"
             )
+
+            # Add CSS for styling the reason input field
+            input_css = ui.tags.style("""
+                input[type="text"] {
+                    width: 100%;
+                    padding: 6px 8px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    box-sizing: border-box;
+                }
+                input[type="text"]:focus {
+                    border-color: #FB4400;
+                    outline: none;
+                    box-shadow: 0 0 0 2px rgba(251, 68, 0, 0.25);
+                }
+            """)
+
+            # Return the final UI component
+            return ui.tags.div(
+                ui.tags.h2(f"PLC: {selected_plc()}"),
+                input_css,
+                ui.tags.div(
+                    table,
+                    class_="data-grid-container"
+                ),
+                ui.output_text("save_status")
+            )
+
         return None
+
+    def render_bit_detail_view():
+        """Render the detailed view for a selected bit."""
+        bit_data = selected_bit_detail()
+        if not bit_data:
+            return ui.tags.div(ui.tags.p("No bit selected for detail view."))
+
+        # Format datetime for display
+        forced_at = bit_data.get('forced_at')
+        if forced_at:
+            forced_at_str = forced_at.strftime("%d-%m-%Y %H:%M:%S")
+        else:
+            forced_at_str = "Not forced"
+
+        # Format None values as empty strings
+        def format_value(value):
+            return '' if value is None or value == 'None' else str(value)
+
+        return ui.tags.div(
+            ui.input_action_button("back_to_table", "← Back to Table", class_="back-button"),
+            ui.tags.div(
+                ui.tags.h3(f"Bit Detail - {bit_data.get('bit_number', 'Unknown')}"),
+
+                ui.tags.div(
+                    ui.tags.span("PLC:", class_="detail-label"),
+                    ui.tags.span(selected_plc() or "Unknown", class_="detail-value")
+                    , class_="detail-field"
+                ),
+
+                ui.tags.div(
+                    ui.tags.span("Resource:", class_="detail-label"),
+                    ui.tags.span(format_value(bit_data.get('resource', selected_resource())), class_="detail-value"),
+                    class_="detail-field"
+                ),
+
+                ui.tags.div(
+                    ui.tags.span("Bit Number:", class_="detail-label"),
+                    ui.tags.span(format_value(bit_data.get('bit_number')), class_="detail-value"),
+                    class_="detail-field"
+                ),
+
+                ui.tags.div(
+                    ui.tags.span("KKS:", class_="detail-label"),
+                    ui.tags.span(format_value(bit_data.get('kks')), class_="detail-value"),
+                    class_="detail-field"
+                ),
+
+                ui.tags.div(
+                    ui.tags.span("Comment:", class_="detail-label"),
+                    ui.tags.span(format_value(bit_data.get('comment')), class_="detail-value"),
+                    class_="detail-field"
+                ),
+
+                ui.tags.div(
+                    ui.tags.span("Second Comment:", class_="detail-label"),
+                    ui.tags.span(format_value(bit_data.get('second_comment')), class_="detail-value"),
+                    class_="detail-field"
+                ),
+
+                ui.tags.div(
+                    ui.tags.span("Current Value:", class_="detail-label"),
+                    ui.tags.span(
+                        format_value(bit_data.get('value')),
+                        class_="detail-value",
+                        style="font-weight: bold; color: #007bff;" if bit_data.get('value') else "color: #6c757d;"
+                    ),
+                    class_="detail-field"
+                ),
+
+                ui.tags.div(
+                    ui.tags.span("Force Active:", class_="detail-label"),
+                    ui.tags.span(
+                        "Yes" if bit_data.get('force_active') else "No",
+                        class_="detail-value",
+                        style="font-weight: bold; color: #dc3545;" if bit_data.get(
+                            'force_active') else "color: #28a745;"
+                    ),
+                    class_="detail-field"
+                ),
+
+                ui.tags.div(
+                    ui.tags.span("Forced At:", class_="detail-label"),
+                    ui.tags.span(forced_at_str, class_="detail-value"),
+                    class_="detail-field"
+                ),
+
+                ui.tags.div(
+                    ui.tags.span("Forced By:", class_="detail-label"),
+                    ui.tags.span(format_value(bit_data.get('forced_by')), class_="detail-value"),
+                    class_="detail-field"
+                ),
+
+                ui.tags.div(
+                    ui.tags.span("Reason:", class_="detail-label"),
+                    ui.tags.span(format_value(bit_data.get('reason')), class_="detail-value"),
+                    class_="detail-field"
+                ),
+
+                class_="detail-view"
+            )
+        )
 
     @outputs()
     @render.ui
@@ -461,7 +882,7 @@ def server(inputs, outputs, session):
         return ui.tags.div(*buttons)
 
     # Inside the server function
-    save_status = reactive.Value("")
+    save_message = reactive.Value("")
 
     # --- Config Save Handler ---
     @reactive.effect
@@ -484,8 +905,12 @@ def server(inputs, outputs, session):
             # Step 4: Synchronize with database
             await sync_with_database()
 
+            # Set success status
+            save_message.set("Configuration saved successfully!")
+
         except Exception as e:
-            save_status.set(f"Error saving file: {str(e)}")
+            # Update the reactive value instead of calling set() on an output
+            save_message.set(f"Error saving file: {str(e)}")
 
     def validate_yaml(yaml_content):
         """Validate that the provided content is valid YAML."""
@@ -493,7 +918,7 @@ def server(inputs, outputs, session):
             test_config = yaml.safe_load(yaml_content)
             return test_config
         except Exception as e:
-            save_status.set(f"Error: Invalid YAML format - {str(e)}")
+            save_message.set(f"Error: Invalid YAML format - {str(e)}")
             return None
 
     def update_configuration(yaml_content, test_config):
@@ -502,7 +927,7 @@ def server(inputs, outputs, session):
 
         # Save to file
         config_loader.save_config(yaml_content)
-        save_status.set("Configuration saved successfully!")
+        save_message.set("Configuration saved successfully!")
 
         # Update global config
         config = test_config
@@ -540,7 +965,7 @@ def server(inputs, outputs, session):
         """Synchronize the configuration with the database."""
         try:
             # Update status
-            save_status.set("Configuration saved. Synchronizing database...")
+            save_message.set("Configuration saved. Synchronizing database...")
 
             # Force UI update
             await session.send_custom_message("force_update", {})
@@ -555,24 +980,97 @@ def server(inputs, outputs, session):
                 await plc_sync.sync_async(conn)
 
                 # Update status
-                save_status.set("Configuration saved and database synchronized successfully!")
+                save_message.set("Configuration saved and database synchronized successfully!")
             finally:
                 await conn.close()
 
         except ImportError as import_err:
-            save_status.set(f"Configuration saved but couldn't import database module: {str(import_err)}")
+            save_message.set(f"Configuration saved but couldn't import database module: {str(import_err)}")
         except psycopg2.OperationalError as db_conn_err:
-            save_status.set(f"Configuration saved but database connection failed: {str(db_conn_err)}")
+            save_message.set(f"Configuration saved but database connection failed: {str(db_conn_err)}")
         except Exception as db_error:
             import traceback
             error_details = traceback.format_exc()
             print(f"Database sync error: {error_details}")
-            save_status.set(f"Configuration saved but database sync failed: {str(db_error)}")
+            save_message.set(f"Configuration saved but database sync failed: {str(db_error)}")
 
     @outputs()
     @render.text
     def save_status_output():
-        return save_status()
+        return save_message()
+
+    # Add this near where other reactive values are defined in the server function
+    save_message = reactive.Value("")
+
+    # Add these inside the server function to handle saving reasons on Enter key
+    @reactive.effect
+    @reactive.event(inputs.save_reason_triggered)
+    async def handle_save_reason_on_enter():
+        trigger_data = inputs.save_reason_triggered()
+        if not trigger_data:
+            return
+
+        # Get data from the triggered event
+        index = int(trigger_data.get('index', -1))
+        reason_text = trigger_data.get('reasonValue', '')
+        forced_text = trigger_data.get('forcedValue', '')
+
+        # Get the data
+        data = plc_bits_data()
+        if not data or index < 0 or index >= len(data):
+            save_message.set("Error: Invalid data index")
+            return
+
+        # Get the record that needs updating
+        record = data[index]
+        plc_name = selected_plc.get()
+        resource_name = selected_resource.get()
+        bit_number = record.get('bit_number')
+        print(f"Saving reason for bit {bit_number} on PLC {plc_name} resource {resource_name}...")
+        try:
+            # Create DB connection
+            repo = PLCBitRepositoryAsync(config_loader)
+            conn = await repo._get_connection()
+
+            try:
+                # Update the reason in the database
+                result = await conn.fetchrow(
+                    "SELECT * FROM insert_force_reason($1, $2, $3, $4, $5)",
+                    plc_name, resource_name, bit_number, reason_text, forced_text
+                )
+                # Check result and update status
+                if result:
+                    save_message.set(f"Reason saved for bit {bit_number}")
+                    print(f"Updated reason for bit {bit_number} to: {reason_text}")
+                    print(f"Updated forced_by for bit {bit_number} to: {forced_text}")
+
+                    # Update the local data to reflect changes
+                    record['reason'] = reason_text
+                    record['forced_by'] = forced_text
+                    new_data = data.copy()
+                    new_data[index] = record
+                    plc_bits_data.set(new_data)
+                else:
+                    save_message.set(f"Failed to save reason for bit {bit_number}")
+            finally:
+                await conn.close()
+
+        except Exception as e:
+            save_message.set(f"Error: {str(e)}")
+            print(f"Database error: {str(e)}")
+
+    # Add this reactive value and render function for status messages
+    save_message = reactive.Value("")
+
+    @outputs()
+    @render.text
+    def save_status():
+        message = save_message()
+        # Clear the message after 3 seconds
+        if message:
+            ui.notification_show(message, duration=3)
+            save_message.set("")
+        return ""
 
 
 app = App(app_ui, server)
