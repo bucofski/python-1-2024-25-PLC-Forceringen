@@ -54,7 +54,6 @@ def update_configuration(yaml_content, test_config, config_loader, save_message)
 
 def update_ui_components(config_loader, inputs, selected_resource, resource_buttons_trigger):
     """Update UI components to reflect the new configuration."""
-    from shiny import ui
 
     host_options = config_loader.get_host_options()
 
