@@ -1,11 +1,12 @@
 import yaml
 import sys
 import io
+import os
 import psycopg2
 from class_config_loader import ConfigLoader
 from insert_data_db_yaml import PLCResourceSync
 from class_fetch_bits import PLCBitRepositoryAsync
-from shiny import reactive, ui
+from shiny import reactive, ui, render
 import head
 
 def run_head_and_capture_output(config_obj, selected_host_value):
@@ -151,9 +152,6 @@ async def fetch_bit_history(bit_data, config_loader, selected_plc, bit_history_d
 
 def create_resource_click_handler(config, inputs, selected_resource, selected_plc, selected_view, plc_bits_data, config_loader):
     """Create handler for resource button clicks"""
-    # Track previous button states to detect new clicks
-    previous_states = {}
-    
     @reactive.effect
     async def handle_resource_clicks():
         sftp_hosts = config.get('sftp_hosts', [])
@@ -168,20 +166,12 @@ def create_resource_click_handler(config, inputs, selected_resource, selected_pl
 
         for i, host in enumerate(hosts):
             resources = host.get('resources', [])
-            hostname = host.get("hostname", host.get("ip_address"))
-            
             for j, resource in enumerate(resources):
-                # Create unique button ID that includes host information
-                btn_id = f"resource_{i}_{j}"  # Include host index to make it unique
-                
+                btn_id = f"resource_{j}"
                 if hasattr(inputs, btn_id):
                     btn_input = getattr(inputs, btn_id)
-                    current_value = btn_input()
-                    previous_value = previous_states.get(btn_id, 0)
-                    
-                    # Only trigger if the button was actually clicked (value increased)
-                    if current_value > previous_value:
-                        previous_states[btn_id] = current_value
+                    if btn_input() > 0:
+                        hostname = host.get("hostname", host.get("ip_address"))
                         selected_resource.set(resource)
                         selected_plc.set(hostname)
                         selected_view.set("resource")
@@ -200,17 +190,11 @@ def create_resource_click_handler(config, inputs, selected_resource, selected_pl
                         print("Results from plc_bits view:")
                         for row in results:
                             print(row)
-                        
-                        # Break out of loops since we found our click
-                        return
 
     return handle_resource_clicks
 
 def create_plc_click_handler(config, inputs, selected_plc, selected_resource, selected_view, plc_bits_data, config_loader):
     """Create handler for PLC button clicks"""
-    # Track previous button states to detect new clicks
-    previous_states = {}
-    
     @reactive.effect
     async def handle_plc_clicks():
         sftp_hosts = config.get('sftp_hosts', [])
@@ -222,12 +206,7 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
             btn_id = f"plc_{i}"
             if hasattr(inputs, btn_id):
                 btn_input = getattr(inputs, btn_id)
-                current_value = btn_input()
-                previous_value = previous_states.get(btn_id, 0)
-                
-                # Only trigger if the button was actually clicked (value increased)
-                if current_value > previous_value:
-                    previous_states[btn_id] = current_value
+                if btn_input() > 0:
                     hostname = host.get("hostname", host.get("ip_address"))
                     print(f"PLC clicked: {hostname}")
                     selected_plc.set(hostname)
@@ -245,17 +224,11 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
                     print("Results for PLC:", hostname)
                     for row in results:
                         print(row)
-                    
-                    # Break out of loop since we found our click
-                    return
 
     return handle_plc_clicks
 
 def create_detail_click_handler(plc_bits_data, inputs, selected_bit_detail, selected_view, bit_history_data, config_loader, selected_plc):
     """Create handler for detail button clicks"""
-    # Track previous button states to detect new clicks
-    previous_states = {}
-    
     @reactive.effect
     async def handle_detail_clicks():
         data = plc_bits_data()
@@ -263,12 +236,7 @@ def create_detail_click_handler(plc_bits_data, inputs, selected_bit_detail, sele
             detail_btn_id = f"detail_btn_{i}"
             if hasattr(inputs, detail_btn_id):
                 btn_input = getattr(inputs, detail_btn_id)
-                current_value = btn_input()
-                previous_value = previous_states.get(detail_btn_id, 0)
-                
-                # Only trigger if the button was actually clicked (value increased)
-                if current_value > previous_value:
-                    previous_states[detail_btn_id] = current_value
+                if btn_input() > 0:
                     selected_bit_detail.set(item)
                     selected_view.set("detail")
                     print(f"Detail view for bit: {item.get('bit_number', '')}")
