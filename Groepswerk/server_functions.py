@@ -5,7 +5,7 @@ import psycopg2
 from class_config_loader import ConfigLoader
 from insert_data_db_yaml import PLCResourceSync
 from class_fetch_bits import PLCBitRepositoryAsync
-from shiny import reactive, ui, render
+from shiny import reactive, ui
 import head
 
 def run_head_and_capture_output(config_obj, selected_host_value):
