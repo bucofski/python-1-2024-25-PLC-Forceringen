@@ -11,7 +11,7 @@ from server_functions import (
     update_ui_components, sync_with_database,
     create_resource_click_handler, create_plc_click_handler,
     create_detail_click_handler, create_save_reason_handler,
-    create_back_button_handler
+    create_back_button_handler, create_save_reason_detail_handler
 )
 import os
 
@@ -90,7 +90,10 @@ def server(inputs, outputs, session):
     create_save_reason_handler(
         inputs, plc_bits_data, selected_plc, selected_resource, save_message, config_loader
     )
-    
+
+    create_save_reason_detail_handler(
+        inputs, selected_bit_detail, selected_plc, selected_resource, save_message, config_loader, bit_history_data
+    )
     create_back_button_handler(
         inputs, selected_resource, selected_view
     )

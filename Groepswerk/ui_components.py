@@ -13,20 +13,33 @@ document.addEventListener('DOMContentLoaded', function() {
         if (target.id && target.id.startsWith('reason_input_') && event.key === 'Enter') {
             event.preventDefault();
             
-            // Get the index from the input ID
-            const index = target.id.split('_')[2];
-            
-            // Get the value from the forced_by field too
-            const forcedInput = document.getElementById('forced_input_' + index);
-            const forcedValue = forcedInput ? forcedInput.value : '';
-            
-            // Trigger a custom event that Shiny can listen for
-            Shiny.setInputValue('save_reason_triggered', {
-                index: index,
-                reasonValue: target.value,
-                forcedValue: forcedValue,
-                timestamp: new Date().getTime()  // Force reactivity on repeated saves
-            });
+            if (target.id === 'reason_input_detail') {
+                // Handle detail view
+                const forcedInput = document.getElementById('forced_input_detail');
+                const forcedValue = forcedInput ? forcedInput.value : '';
+                
+                // Trigger a custom event for detail view
+                Shiny.setInputValue('save_reason_detail_triggered', {
+                    reasonValue: target.value,
+                    forcedValue: forcedValue,
+                    timestamp: new Date().getTime()
+                });
+            } else {
+                // Handle table view (existing functionality)
+                const index = target.id.split('_')[2];
+                
+                // Get the value from the forced_by field too
+                const forcedInput = document.getElementById('forced_input_' + index);
+                const forcedValue = forcedInput ? forcedInput.value : '';
+                
+                // Trigger a custom event that Shiny can listen for
+                Shiny.setInputValue('save_reason_triggered', {
+                    index: index,
+                    reasonValue: target.value,
+                    forcedValue: forcedValue,
+                    timestamp: new Date().getTime()  // Force reactivity on repeated saves
+                });
+            }
         }
     });
 });
@@ -300,6 +313,19 @@ def create_detail_view(bit_data, history_data):
     else:
         forced_at_str = "Not forced"
 
+    # Format None values as empty strings for input fields
+    forced_by = bit_data.get('forced_by', '')
+    if forced_by == 'None':
+        forced_by = ''
+
+    reason = bit_data.get('reason', '')
+    if reason == 'None':
+        reason = ''
+
+    # Create unique IDs for input fields (using "detail" prefix to distinguish from table)
+    forced_id = "forced_input_detail"
+    reason_id = "reason_input_detail"
+
     # Create a back button to return to previous view
     back_button = ui.input_action_button(
         "back_to_list",
@@ -366,12 +392,12 @@ def create_detail_view(bit_data, history_data):
                 ),
                 ui.tags.div(
                     ui.tags.strong("Forced By: "),
-                    bit_data.get('forced_by', 'None') if bit_data.get('forced_by') != 'None' else 'Not specified',
+                    ui.input_text(forced_id, "", value=forced_by, placeholder="Enter user..."),
                     style="margin-bottom: 10px;"
                 ),
                 ui.tags.div(
                     ui.tags.strong("Reason: "),
-                    bit_data.get('reason', 'None') if bit_data.get('reason') != 'None' else 'No reason provided',
+                    ui.input_text(reason_id, "", value=reason, placeholder="Enter reason..."),
                     style="margin-bottom: 10px;"
                 ),
                 style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;"
@@ -450,6 +476,7 @@ def create_detail_view(bit_data, history_data):
         ui.tags.h2(f"Detail View - Bit {bit_data.get('bit_number', 'N/A')}"),
         detail_info,
         history_section,
+        ui.output_text("save_status"),
         style="max-width: 1000px; margin: 0 auto;"
     )
 

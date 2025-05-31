@@ -86,13 +86,14 @@ BEGIN
 
             -- Insert/Update each bit (using correct column names)
             INSERT INTO resource_bit (
-                plc_id, resource_id, bit_number, kks, comment, second_comment, 
+                plc_id, resource_id, bit_number, kks, VAR_Type, comment, second_comment,
                 value, force_active
             ) VALUES (
                 v_plc_id,
                 v_resource_id,
                 v_bit_record->>'name_id',  -- maps to bit_number
                 v_bit_record->>'KKS',      -- maps to kks
+				v_bit_record->>'VAR_Type', -- maps to Variable Type
                 v_bit_record->>'Comment',  -- maps to comment
                 v_bit_record->>'Second_comment', -- maps to second_comment
                 v_bit_record->>'Value',    -- maps to value
@@ -100,6 +101,7 @@ BEGIN
             )
             ON CONFLICT (plc_id, resource_id, bit_number) DO UPDATE SET
                 kks = EXCLUDED.kks,
+				VAR_Type = EXCLUDED.VAR_Type,
                 comment = EXCLUDED.comment,
                 second_comment = EXCLUDED.second_comment,
                 value = EXCLUDED.value,
@@ -116,21 +118,21 @@ BEGIN
                     NOW()
                 );
             END IF;
-            
+
             v_bits_count := v_bits_count + 1;
         END LOOP;
 
         -- Success
-        RETURN QUERY SELECT 
-            TRUE::BOOLEAN, 
+        RETURN QUERY SELECT
+            TRUE::BOOLEAN,
             'Successfully processed ' || v_bits_count || ' bits for ' || p_plc_name || '/' || p_resource_name,
             v_bits_count;
 
     EXCEPTION WHEN OTHERS THEN
         -- Handle any errors
         GET STACKED DIAGNOSTICS v_error_msg = MESSAGE_TEXT;
-        RETURN QUERY SELECT 
-            FALSE::BOOLEAN, 
+        RETURN QUERY SELECT
+            FALSE::BOOLEAN,
             'Error: ' || v_error_msg,
             v_bits_count;
     END;
@@ -167,8 +169,8 @@ BEGIN
 
     -- Check if bit was found
     IF v_bit_id IS NULL THEN
-        RETURN QUERY SELECT FALSE AS success, 
-                    format('Bit not found for PLC %s, Resource %s, Bit %s', 
+        RETURN QUERY SELECT FALSE AS success,
+                    format('Bit not found for PLC %s, Resource %s, Bit %s',
                            in_plc_name, in_resource_name, in_bit_number) AS message;
         RETURN;
     END IF;
@@ -176,7 +178,7 @@ BEGIN
     -- Find the latest force_id for this bit (the most recent forced entry that hasn't been deforced)
     SELECT force_id INTO v_force_id
     FROM bit_force_reason
-    WHERE bit_id = v_bit_id 
+    WHERE bit_id = v_bit_id
       AND deforced_at IS NULL
     ORDER BY forced_at DESC
     LIMIT 1;
@@ -184,7 +186,7 @@ BEGIN
     -- If no active force reason exists, create a new one
     IF v_force_id IS NULL THEN
         INSERT INTO bit_force_reason (bit_id, reason, forced_by, forced_at)
-        VALUES (v_bit_id, in_reason, in_forced_by, NOW())
+        VALUES (v_bit_id, in_reason, in_forced_by())
         RETURNING force_id INTO v_force_id;
         
         RETURN QUERY SELECT TRUE AS success, 

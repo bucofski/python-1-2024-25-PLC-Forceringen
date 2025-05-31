@@ -357,3 +357,65 @@ def create_back_button_handler(inputs, selected_resource, selected_view):
             selected_view.set("ALL")
 
     return handle_back_button
+
+def create_save_reason_detail_handler(inputs, selected_bit_detail, selected_plc, selected_resource, save_message, config_loader, bit_history_data):
+    """Create handler for saving reasons in detail view on Enter key"""
+    @reactive.effect
+    @reactive.event(inputs.save_reason_detail_triggered)
+    async def handle_save_reason_detail_on_enter():
+        trigger_data = inputs.save_reason_detail_triggered()
+        if not trigger_data:
+            return
+
+        # Get data from the triggered event
+        reason_text = trigger_data.get('reasonValue', '')
+        forced_text = trigger_data.get('forcedValue', '')
+
+        # Get the current bit data
+        bit_data = selected_bit_detail()
+        if not bit_data:
+            save_message.set("Error: No bit selected")
+            return
+
+        plc_name = bit_data.get('PLC') or selected_plc()
+        resource_name = bit_data.get('resource') or selected_resource()
+        bit_number = bit_data.get('bit_number')
+        
+        print(f"Saving reason in detail view for bit {bit_number} on PLC {plc_name} resource {resource_name}...")
+        
+        try:
+            # Create DB connection
+            repo = PLCBitRepositoryAsync(config_loader)
+            conn = await repo._get_connection()
+
+            try:
+                # Update the reason in the database
+                result = await conn.fetchrow(
+                    "SELECT * FROM insert_force_reason($1, $2, $3, $4, $5)",
+                    plc_name, resource_name, bit_number, reason_text, forced_text
+                )
+                
+                # Check result and update status
+                if result:
+                    save_message.set(f"Reason saved for bit {bit_number}")
+                    print(f"Updated reason for bit {bit_number} to: {reason_text}")
+                    print(f"Updated forced_by for bit {bit_number} to: {forced_text}")
+
+                    # Update the selected bit detail data
+                    updated_bit_data = bit_data.copy()
+                    updated_bit_data['reason'] = reason_text
+                    updated_bit_data['forced_by'] = forced_text
+                    selected_bit_detail.set(updated_bit_data)
+                    
+                    # Refresh history data
+                    await fetch_bit_history(updated_bit_data, config_loader, selected_plc, bit_history_data)
+                else:
+                    save_message.set(f"Failed to save reason for bit {bit_number}")
+            finally:
+                await conn.close()
+
+        except Exception as e:
+            save_message.set(f"Error: {str(e)}")
+            print(f"Database error: {str(e)}")
+
+    return handle_save_reason_detail_on_enter
