@@ -1,12 +1,11 @@
-from class_fetch_bits import PLCBitRepositoryAsync
-from class_config_loader import ConfigLoader
+from Groepswerk.util.class_config_loader import ConfigLoader
 from shiny import App, ui, render, reactive
-from ui_components import (
+from Groepswerk.ui.ui_components import (
     create_app_ui, create_resource_buttons_ui, 
     create_resource_table, create_plc_table, create_detail_view, 
     create_config_view, create_output_view
 )
-from server_functions import (
+from Groepswerk.util.server_functions import (
     run_head_and_capture_output, validate_yaml, update_configuration,
     update_ui_components, sync_with_database,
     create_resource_click_handler, create_plc_click_handler,
@@ -17,10 +16,10 @@ import os
 
 # Read host options from YAML
 script_dir = os.path.dirname(os.path.abspath(__file__))
-yaml_path = os.path.join(script_dir, "..", "Groepswerk", "plc.yaml")
+yaml_path = os.path.join(script_dir, "..", "Groepswerk", "config", "plc.yaml")
 
 try:
-    config_loader = ConfigLoader("plc.yaml")
+    config_loader = ConfigLoader("../config/plc.yaml")
     config = config_loader.config  # Store for backward compatibility
     host_options = config_loader.get_host_options()
 except FileNotFoundError:

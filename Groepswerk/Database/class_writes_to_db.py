@@ -1,9 +1,9 @@
 import json
-from class_bit_conversion import BitConversion
-from class_fetch_bits import PLCBitRepositoryAsync
-from class_config_loader import ConfigLoader
-from class_making_querry import DataProcessor, FileReader
-from class_database import DatabaseSearcher
+from Groepswerk.PLC.class_bit_conversion import BitConversion
+from Groepswerk.PLC.class_fetch_bits import PLCBitRepositoryAsync
+from Groepswerk.util.class_config_loader import ConfigLoader
+from Groepswerk.Database.class_making_querry import DataProcessor, FileReader
+from Groepswerk.Database.class_database import DatabaseSearcher
 import asyncio
 import threading
 
@@ -99,7 +99,7 @@ class BitConversionDBWriter(BitConversion):
 if __name__ == "__main__":
     async def main():
         try:
-            config_loader = ConfigLoader("plc.yaml")
+            config_loader = ConfigLoader("config/plc.yaml")
             words_list = FileReader("BTEST_NIET.dat").read_and_parse_file()
             data_list = list(DataProcessor.convert_and_process_list(words_list))
 

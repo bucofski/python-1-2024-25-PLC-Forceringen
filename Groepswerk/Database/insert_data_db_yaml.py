@@ -1,5 +1,5 @@
 import psycopg2
-from class_config_loader import ConfigLoader
+from Groepswerk.util.class_config_loader import ConfigLoader
 
 
 class PLCResourceSync:
@@ -171,7 +171,7 @@ class PLCResourceSync:
 
 
 if __name__ == "__main__":
-    yaml_path = "plc.yaml"
+    yaml_path = "../config/plc.yaml"
     config_loader = ConfigLoader(yaml_path)
     pg_info = config_loader.get_database_info()
     conn = psycopg2.connect(**pg_info)
