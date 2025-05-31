@@ -330,6 +330,10 @@ def create_detail_view(bit_data, history_data):
                     style="margin-bottom: 10px;"
                 ),
                 ui.tags.div(
+                    ui.tags.strong("Variable type: "), str(bit_data.get('var_type', 'N/A')),
+                    style="margin-bottom: 10px;"
+                ),
+                ui.tags.div(
                     ui.tags.strong("Force Active: "),
                     "Yes" if bit_data.get('force_active') else "No",
                     style="margin-bottom: 10px;"
