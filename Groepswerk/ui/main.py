@@ -6,7 +6,7 @@ from Groepswerk.ui.ui_components import (
     create_config_view, create_output_view
 )
 from Groepswerk.util.server_functions import (
-    run_head_and_capture_output, validate_yaml, update_configuration,
+    run_distributor_and_capture_output, validate_yaml, update_configuration,
     update_ui_components, sync_with_database,
     create_resource_click_handler, create_plc_click_handler,
     create_detail_click_handler, create_save_reason_handler,
@@ -111,7 +111,7 @@ def server(inputs, outputs, session):
     @reactive.event(inputs.start_btn)
     def on_start():
         selected_host_value = inputs.host_select()
-        captured_output = run_head_and_capture_output(config_loader, selected_host_value)
+        captured_output = run_distributor_and_capture_output(config_loader, selected_host_value)
         terminal_text.set(captured_output or "[No output produced]")
 
     @outputs()

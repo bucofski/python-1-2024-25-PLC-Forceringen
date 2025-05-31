@@ -6,10 +6,10 @@ from Groepswerk.util.class_config_loader import ConfigLoader
 from Groepswerk.Database.insert_data_db_yaml import PLCResourceSync
 from Groepswerk.PLC.class_fetch_bits import PLCBitRepositoryAsync
 from shiny import reactive, ui
-from Groepswerk.util import head
+from Groepswerk.util import distributor
 
 
-def run_head_and_capture_output(config_obj, selected_host_value):
+def run_distributor_and_capture_output(config_obj, selected_host_value):
     """Capture output from head module execution"""
     buffer = io.StringIO()
     old_stdout = sys.stdout
@@ -21,10 +21,10 @@ def run_head_and_capture_output(config_obj, selected_host_value):
             for host in config_obj.get_sftp_hosts():
                 host_name = host.get('hostname', host.get('ip_address'))
                 print(f"=== {host_name} ===")
-                head.run_main_with_host(config_obj, host_name, is_gui_context=True)
+                distributor.run_main_with_host(config_obj, host_name, is_gui_context=True)
                 print()
         else:
-            head.run_main_with_host(config_obj, selected_host_value, is_gui_context=True)
+            distributor.run_main_with_host(config_obj, selected_host_value, is_gui_context=True)
     except Exception as e:
         print(f"Error: {e}")
     finally:
