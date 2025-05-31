@@ -13,20 +13,33 @@ document.addEventListener('DOMContentLoaded', function() {
         if (target.id && target.id.startsWith('reason_input_') && event.key === 'Enter') {
             event.preventDefault();
             
-            // Get the index from the input ID
-            const index = target.id.split('_')[2];
-            
-            // Get the value from the forced_by field too
-            const forcedInput = document.getElementById('forced_input_' + index);
-            const forcedValue = forcedInput ? forcedInput.value : '';
-            
-            // Trigger a custom event that Shiny can listen for
-            Shiny.setInputValue('save_reason_triggered', {
-                index: index,
-                reasonValue: target.value,
-                forcedValue: forcedValue,
-                timestamp: new Date().getTime()  // Force reactivity on repeated saves
-            });
+            if (target.id === 'reason_input_detail') {
+                // Handle detail view
+                const forcedInput = document.getElementById('forced_input_detail');
+                const forcedValue = forcedInput ? forcedInput.value : '';
+                
+                // Trigger a custom event for detail view
+                Shiny.setInputValue('save_reason_detail_triggered', {
+                    reasonValue: target.value,
+                    forcedValue: forcedValue,
+                    timestamp: new Date().getTime()
+                });
+            } else {
+                // Handle table view (existing functionality)
+                const index = target.id.split('_')[2];
+                
+                // Get the value from the forced_by field too
+                const forcedInput = document.getElementById('forced_input_' + index);
+                const forcedValue = forcedInput ? forcedInput.value : '';
+                
+                // Trigger a custom event that Shiny can listen for
+                Shiny.setInputValue('save_reason_triggered', {
+                    index: index,
+                    reasonValue: target.value,
+                    forcedValue: forcedValue,
+                    timestamp: new Date().getTime()  // Force reactivity on repeated saves
+                });
+            }
         }
     });
 });
@@ -76,6 +89,444 @@ def create_resource_buttons_ui(config, inputs, selected_resource, selected_plc):
                                    class_="button button1", style="width:90%; margin-bottom:8px;")
         )
     return ui.tags.div(*buttons)
+
+def create_table_css():
+    """Create CSS for input fields and tables"""
+    return ui.tags.style("""
+        input[type="text"] {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        input[type="text"]:focus {
+            border-color: #FB4400;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(251, 68, 0, 0.25);
+        }
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 12px;
+            border-radius: 3px;
+        }
+        .data-grid th {
+            background-color: #e9ecef;
+            padding: 8px;
+            text-align: left;
+            border: 1px solid #dee2e6;
+            font-weight: bold;
+        }
+        .data-grid td {
+            padding: 8px;
+            border: 1px solid #dee2e6;
+            vertical-align: top;
+        }
+        .data-grid {
+            border-collapse: collapse;
+            margin: 0;
+        }
+    """)
+
+def create_resource_table(data, selected_resource, selected_plc):
+    """Create table for resource view"""
+    if not data:
+        return ui.tags.div(
+            ui.tags.h2(f"Resource: {selected_resource()}"),
+            ui.tags.p("No data available for this resource.")
+        )
+
+    # Create column headers - added "Details" column
+    headers = [
+        "Bit Number", "KKS",
+        "Comment", "Second Comment", "Value",
+        "Forced At", "forced by", "Reason", "Details"
+    ]
+
+    # Create the table header row
+    header_cells = [ui.tags.th(header) for header in headers]
+    header_row = ui.tags.tr(*header_cells)
+
+    # Create table rows for each data item
+    rows = []
+    for i, item in enumerate(data):
+        # Format datetime for display
+        forced_at = item.get('forced_at')
+        if forced_at:
+            forced_at_str = forced_at.strftime("%d-%m-%Y")
+        else:
+            forced_at_str = ""
+
+        # Format None values as empty strings
+        comment = item.get('comment', '')
+        if comment == 'None':
+            comment = ''
+
+        second_comment = item.get('second_comment', '')
+        if second_comment == 'None':
+            second_comment = ''
+
+        forced_by = item.get('forced_by', '')
+        if forced_by == 'None':
+            forced_by = ''
+
+        reason = item.get('reason', '')
+        if reason == 'None':
+            reason = ''
+
+        # Create row with cells
+        row_class = "force-active" if item.get('force_active') else ""
+
+        # Create unique ID for reason input field based on row index
+        reason_id = f"reason_input_{i}"
+        forced_id = f"forced_input_{i}"
+        detail_btn_id = f"detail_btn_{i}"
+
+        cells = [
+            ui.tags.td(item.get('bit_number', '')),
+            ui.tags.td(item.get('kks', '')),
+            ui.tags.td(comment),
+            ui.tags.td(second_comment),
+            ui.tags.td(item.get('value', '')),
+            ui.tags.td(forced_at_str),
+            ui.tags.td(ui.input_text(forced_id, "", value=forced_by, placeholder="Enter user...")),
+            ui.tags.td(ui.input_text(reason_id, "", value=reason, placeholder="Enter reason...")),
+            ui.tags.td(ui.input_action_button(
+                detail_btn_id,
+                "View Details",
+                class_="btn btn-primary btn-sm",
+                style="padding: 4px 8px; font-size: 12px;"
+            ))
+        ]
+
+        rows.append(ui.tags.tr(*cells, class_=row_class, id=f"bit_row_{i}"))
+
+    # Build the complete table
+    table = ui.tags.table(
+        ui.tags.thead(header_row),
+        ui.tags.tbody(*rows),
+        class_="data-grid"
+    )
+
+    # Return the final UI component
+    return ui.tags.div(
+        ui.tags.h2(f"Resource: {selected_resource()} on PLC: {selected_plc()}"),
+        create_table_css(),
+        ui.tags.div(
+            table,
+            class_="data-grid-container"
+        ),
+        ui.output_text("save_status")
+    )
+
+def create_plc_table(data, selected_plc):
+    """Create table for PLC view (all resources)"""
+    if not data:
+        return ui.tags.div(
+            ui.tags.h2(f"PLC: {selected_plc()}"),
+            ui.tags.p("No data available for this PLC.")
+        )
+
+    # Create column headers - added "Details" column
+    headers = [
+        "resource", "Bit Number", "KKS",
+        "Comment", "Second Comment", "Value",
+        "Forced At", "forced by", "Details"
+    ]
+
+    # Create the table header row
+    header_cells_plc = [ui.tags.th(header) for header in headers]
+    header_row = ui.tags.tr(*header_cells_plc)
+
+    # Create table rows for each data item
+    rows = []
+    for i, item in enumerate(data):
+        # Format datetime for display
+        forced_at = item.get('forced_at')
+        if forced_at:
+            forced_at_str = forced_at.strftime("%d-%m-%Y")
+        else:
+            forced_at_str = ""
+
+        # Format None values as empty strings
+        comment = item.get('comment', '')
+        if comment == 'None':
+            comment = ''
+
+        second_comment = item.get('second_comment', '')
+        if second_comment == 'None':
+            second_comment = ''
+
+        # Create row with cells
+        row_class = "force-active" if item.get('force_active') else ""
+        detail_btn_id = f"detail_btn_{i}"
+
+        cells = [
+            ui.tags.td(item.get('resource', '')),
+            ui.tags.td(item.get('bit_number', '')),
+            ui.tags.td(item.get('kks', '')),
+            ui.tags.td(comment),
+            ui.tags.td(second_comment),
+            ui.tags.td(item.get('value', '')),
+            ui.tags.td(forced_at_str),
+            ui.tags.td(item.get('forced_by', '')),
+            ui.tags.td(ui.input_action_button(
+                detail_btn_id,
+                "View Details",
+                class_="btn btn-primary btn-sm",
+                style="padding: 4px 8px; font-size: 12px;"
+            ))
+        ]
+
+        rows.append(ui.tags.tr(*cells, class_=row_class, id=f"bit_row_{i}"))
+
+    # Build the complete table
+    table = ui.tags.table(
+        ui.tags.thead(header_row),
+        ui.tags.tbody(*rows),
+        class_="data-grid"
+    )
+
+    # Return the final UI component
+    return ui.tags.div(
+        ui.tags.h2(f"PLC: {selected_plc()}"),
+        create_table_css(),
+        ui.tags.div(
+            table,
+            class_="data-grid-container"
+        ),
+        ui.output_text("save_status")
+    )
+
+def create_detail_view(bit_data, history_data):
+    """Create detailed view for a specific bit"""
+    if not bit_data:
+        return ui.tags.div(
+            ui.tags.h2("Detail View"),
+            ui.tags.p("No bit selected for detail view.")
+        )
+
+    # Format datetime for display
+    forced_at = bit_data.get('forced_at')
+    if forced_at:
+        forced_at_str = forced_at.strftime("%d-%m-%Y %H:%M:%S")
+    else:
+        forced_at_str = "Not forced"
+
+    # Format None values as empty strings for input fields
+    forced_by = bit_data.get('forced_by', '')
+    if forced_by == 'None':
+        forced_by = ''
+
+    reason = bit_data.get('reason', '')
+    if reason == 'None':
+        reason = ''
+
+    # Create unique IDs for input fields (using "detail" prefix to distinguish from table)
+    forced_id = "forced_input_detail"
+    reason_id = "reason_input_detail"
+
+    # Create a back button to return to previous view
+    back_button = ui.input_action_button(
+        "back_to_list",
+        "← Back to List",
+        class_="btn btn-secondary",
+        style="margin-bottom: 20px;"
+    )
+
+    # Create detail information cards
+    detail_info = ui.tags.div(
+        ui.tags.div(
+            ui.tags.h3("Bit Information"),
+            ui.tags.div(
+                ui.tags.div(
+                    ui.tags.strong("Bit Number: "), bit_data.get('bit_number', 'N/A'),
+                    style="margin-bottom: 10px;"
+                ),
+                ui.tags.div(
+                    ui.tags.strong("KKS: "), bit_data.get('kks', 'N/A'),
+                    style="margin-bottom: 10px;"
+                ),
+                ui.tags.div(
+                    ui.tags.strong("Resource: "), bit_data.get('resource', 'N/A'),
+                    style="margin-bottom: 10px;"
+                ),
+                ui.tags.div(
+                    ui.tags.strong("Value: "), str(bit_data.get('value', 'N/A')),
+                    style="margin-bottom: 10px;"
+                ),
+                ui.tags.div(
+                    ui.tags.strong("Variable type: "), str(bit_data.get('var_type', 'N/A')),
+                    style="margin-bottom: 10px;"
+                ),
+                ui.tags.div(
+                    ui.tags.strong("Force Active: "),
+                    "Yes" if bit_data.get('force_active') else "No",
+                    style="margin-bottom: 10px;"
+                ),
+                style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;"
+            )
+        ),
+        ui.tags.div(
+            ui.tags.h3("Comments"),
+            ui.tags.div(
+                ui.tags.div(
+                    ui.tags.strong("Comment: "),
+                    bit_data.get('comment', 'None') if bit_data.get('comment') != 'None' else 'No comment',
+                    style="margin-bottom: 10px;"
+                ),
+                ui.tags.div(
+                    ui.tags.strong("Second Comment: "),
+                    bit_data.get('second_comment', 'None') if bit_data.get('second_comment') != 'None' else 'No comment',
+                    style="margin-bottom: 10px;"
+                ),
+                style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;"
+            )
+        ),
+        ui.tags.div(
+            ui.tags.h3("Current Force Information"),
+            ui.tags.div(
+                ui.tags.div(
+                    ui.tags.strong("Forced At: "), forced_at_str,
+                    style="margin-bottom: 10px;"
+                ),
+                ui.tags.div(
+                    ui.tags.strong("Forced By: "),
+                    ui.input_text(forced_id, "", value=forced_by, placeholder="Enter user..."),
+                    style="margin-bottom: 10px;"
+                ),
+                ui.tags.div(
+                    ui.tags.strong("Reason: "),
+                    ui.input_text(reason_id, "", value=reason, placeholder="Enter reason..."),
+                    style="margin-bottom: 10px;"
+                ),
+                style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;"
+            )
+        )
+    )
+
+    # Create history section
+    if history_data:
+        # Create history table headers
+        history_headers = ["Forced At", "Deforced At", "Forced By", "Reason"]
+        history_header_cells = [ui.tags.th(header) for header in history_headers]
+        history_header_row = ui.tags.tr(*history_header_cells)
+
+        # Create history table rows
+        history_rows = []
+        for hist_item in history_data:
+            # Format dates
+            forced_at_hist = hist_item.get('forced_at')
+            if forced_at_hist:
+                forced_at_str_hist = forced_at_hist.strftime("%d-%m-%Y %H:%M:%S")
+            else:
+                forced_at_str_hist = "N/A"
+
+            deforced_at_hist = hist_item.get('deforced_at')
+            if deforced_at_hist:
+                deforced_at_str_hist = deforced_at_hist.strftime("%d-%m-%Y %H:%M:%S")
+            else:
+                deforced_at_str_hist = "Still Active" if hist_item == history_data[0] else "N/A"
+
+            # Format None values
+            forced_by_hist = hist_item.get('forced_by', 'Unknown')
+            if forced_by_hist == 'None':
+                forced_by_hist = 'Unknown'
+
+            reason_hist = hist_item.get('reason', 'No reason')
+            if reason_hist == 'None':
+                reason_hist = 'No reason'
+
+            hist_cells = [
+                ui.tags.td(forced_at_str_hist),
+                ui.tags.td(deforced_at_str_hist),
+                ui.tags.td(forced_by_hist),
+                ui.tags.td(reason_hist)
+            ]
+
+            history_rows.append(ui.tags.tr(*hist_cells))
+
+        # Build the history table
+        history_table = ui.tags.table(
+            ui.tags.thead(history_header_row),
+            ui.tags.tbody(*history_rows),
+            class_="data-grid",
+            style="width: 100%; font-size: 14px;"
+        )
+
+        history_section = ui.tags.div(
+            ui.tags.h3("Force History (Last 5 Records)"),
+            ui.tags.div(
+                history_table,
+                style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; overflow-x: auto;"
+            )
+        )
+    else:
+        history_section = ui.tags.div(
+            ui.tags.h3("Force History"),
+            ui.tags.div(
+                ui.tags.p("No force history available for this bit."),
+                style="background-color: #f8f9fa; padding: 15px; border-radius: 5px;"
+            )
+        )
+
+    return ui.tags.div(
+        back_button,
+        create_table_css(),
+        ui.tags.h2(f"Detail View - Bit {bit_data.get('bit_number', 'N/A')}"),
+        detail_info,
+        history_section,
+        ui.output_text("save_status"),
+        style="max-width: 1000px; margin: 0 auto;"
+    )
+
+def create_config_view(yaml_path):
+    """Create configuration editing view"""
+    # Load and display the content of plc.yaml for editing
+    with open(yaml_path, "r") as file:
+        yaml_content = file.read()
+
+    return ui.tags.div(
+        ui.tags.h2("PLC Configuration"),
+        ui.tags.div(
+            ui.tags.label(
+                "Edit PLC Configuration:",
+                **{"for": "yaml_editor"},
+                style="display: block; margin-bottom: 8px; font-size: 1.1rem;"
+            ),
+            ui.input_text_area(
+                "yaml_editor",
+                label=None,
+                value=yaml_content,
+                height="600px",
+                width="800px",
+                resize="both"
+            ),
+            style="display: flex; flex-direction: column; align-items: center; margin: 0 auto;"
+        ),
+        ui.tags.div(
+            ui.input_action_button(
+                "save_config",
+                "Save Changes",
+                class_="button button1",
+                style="margin-top: 16px; padding: 10px 20px;"
+            ),
+            ui.tags.div(
+                ui.output_text("save_status_output"),
+                style="margin-top: 12px; font-weight: bold;"
+            ),
+            style="display: flex; flex-direction: column; align-items: center; margin-top: 16px;"
+        ),
+        style="width: 800px; margin: 0 auto; text-align: center;"
+    )
+
+def create_output_view():
+    """Create output view for terminal display"""
+    return ui.tags.div(
+        ui.output_text("selected_host"),
+        ui.tags.h2("Output"),
+        ui.output_text_verbatim("terminal_output", placeholder=True)
+    )
 
 def create_app_ui(host_options):
     """Create the main application UI"""

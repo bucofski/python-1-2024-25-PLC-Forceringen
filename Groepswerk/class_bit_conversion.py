@@ -51,7 +51,8 @@ if __name__ == "__main__":
     db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
     custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
     with DatabaseSearcher(db_path) as searcher:
-        results = searcher.search(processed_words, query_template=custom_query)
+        results = searcher.search(processed_words, query_template=custom_query, department_name="bt2", plc="BTEST",
+                                  resource="NIET")
 
     # Convert bits
     bit_converter = BitConversion(results)
