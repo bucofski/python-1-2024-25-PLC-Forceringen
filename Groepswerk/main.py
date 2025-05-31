@@ -59,7 +59,22 @@ def server(inputs, outputs, session):
         selected_view.set("Config")
         print("Selected view is:", selected_view())
 
-    # Create event handlers using server functions
+    @reactive.effect
+    @reactive.event(inputs.view_resource)
+    def _():
+        selected_view.set("resource")
+
+    @reactive.effect
+    @reactive.event(inputs.view_all)
+    def _():
+        selected_view.set("ALL")
+        
+    @reactive.effect
+    @reactive.event(inputs.view_detail)
+    def _():
+        selected_view.set("detail")
+
+    # Create all event handlers once at startup
     create_resource_click_handler(
         config, inputs, selected_resource, selected_plc, selected_view, plc_bits_data, config_loader
     )
@@ -71,7 +86,7 @@ def server(inputs, outputs, session):
     create_detail_click_handler(
         plc_bits_data, inputs, selected_bit_detail, selected_view, bit_history_data, config_loader, selected_plc
     )
-    
+
     create_save_reason_handler(
         inputs, plc_bits_data, selected_plc, selected_resource, save_message, config_loader
     )
