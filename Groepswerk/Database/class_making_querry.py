@@ -31,7 +31,7 @@ class DataProcessor:
 
 if __name__ == "__main__":
     # Instantiate FileReader and read the file
-    file_reader = FileReader("for.dat")
+    file_reader = FileReader("../tests/for.dat")
     words_list = file_reader.read_and_parse_file()
 
     # Process the list using DataProcessor statically

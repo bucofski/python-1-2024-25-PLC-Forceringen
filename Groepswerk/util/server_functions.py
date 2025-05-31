@@ -1,13 +1,13 @@
 import yaml
 import sys
 import io
-import os
 import psycopg2
-from class_config_loader import ConfigLoader
-from insert_data_db_yaml import PLCResourceSync
-from class_fetch_bits import PLCBitRepositoryAsync
-from shiny import reactive, ui, render
-import head
+from Groepswerk.util.class_config_loader import ConfigLoader
+from Groepswerk.Database.insert_data_db_yaml import PLCResourceSync
+from Groepswerk.PLC.class_fetch_bits import PLCBitRepositoryAsync
+from shiny import reactive, ui
+from Groepswerk.util import head
+
 
 def run_head_and_capture_output(config_obj, selected_host_value):
     """Capture output from head module execution"""
@@ -48,7 +48,7 @@ def update_configuration(yaml_content, test_config, config_loader, save_message)
     save_message.set("Configuration saved successfully!")
 
     # Reinitialize config loader
-    config_loader = ConfigLoader("plc.yaml")
+    config_loader = ConfigLoader("../config/plc.yaml")
 
     return test_config, config_loader
 
@@ -80,7 +80,7 @@ def update_ui_components(config_loader, inputs, selected_resource, resource_butt
 async def sync_with_database(config_loader, save_message, session):
     """Synchronize the configuration with the database."""
     try:
-        from class_fetch_bits import PLCBitRepositoryAsync
+        from Groepswerk.PLC.class_fetch_bits import PLCBitRepositoryAsync
 
         # Update status
         save_message.set("Configuration saved. Synchronizing database...")

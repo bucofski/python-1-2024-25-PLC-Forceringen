@@ -1,12 +1,12 @@
 import os
 import asyncio
-from connect_to_PLC import SFTPClient
-from class_making_querry import FileReader, DataProcessor
-from class_database import DatabaseSearcher
-from class_bit_conversion import BitConversion
+from Groepswerk.PLC.connect_to_PLC import SFTPClient
+from Groepswerk.Database.class_making_querry import FileReader, DataProcessor
+from Groepswerk.Database.class_database import DatabaseSearcher
+from Groepswerk.PLC.class_bit_conversion import BitConversion
 from datetime import datetime
-from class_config_loader import ConfigLoader
-from class_writes_to_db import BitConversionDBWriter
+from Groepswerk.util.class_config_loader import ConfigLoader
+from Groepswerk.Database.class_writes_to_db import BitConversionDBWriter
 
 def select_sftp_host(config_loader):
     """Select an SFTP host from the configuration."""
@@ -41,7 +41,7 @@ def main():
     #     config = yaml.safe_load(f)
     #
     # # Load configuration using ConfigLoader instead of direct YAML loading
-    config_loader = ConfigLoader("plc.yaml")
+    config_loader = ConfigLoader("../config/plc.yaml")
 
     host_selection = select_sftp_host(config_loader)
     if not host_selection:

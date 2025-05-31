@@ -1,7 +1,7 @@
 from datetime import datetime
 import pyodbc
-from class_making_querry import FileReader, DataProcessor
-from class_config_loader import ConfigLoader
+from Groepswerk.Database.class_making_querry import FileReader, DataProcessor
+from Groepswerk.util.class_config_loader import ConfigLoader
 
 
 class DatabaseSearcher:
@@ -88,7 +88,7 @@ if __name__ == "__main__":
     start = datetime.now()
 
     # Use ConfigLoader to load configuration from YAML
-    config_loader = ConfigLoader("plc.yaml")
+    config_loader = ConfigLoader("config/plc.yaml")
     config = config_loader.config
     department_name = config.get("department_name", "UNKNOWN")
 

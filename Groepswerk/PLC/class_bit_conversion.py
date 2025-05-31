@@ -1,7 +1,7 @@
 import struct
 from datetime import datetime
-from class_making_querry import DataProcessor, FileReader
-from class_database import DatabaseSearcher
+from Groepswerk.Database.class_making_querry import DataProcessor, FileReader
+from Groepswerk.Database.class_database import DatabaseSearcher
 
 
 class BitConversion:
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     start = datetime.now()
 
     # Read and process the input file only once
-    words_list = FileReader("BTEST_NIET.dat").read_and_parse_file()
+    words_list = FileReader("../tests/BTEST_NIET.dat").read_and_parse_file()
     processed_words = list(DataProcessor.convert_and_process_list(words_list))
 
     # Initialize database searcher and perform search within context manager
