@@ -151,7 +151,10 @@ async def fetch_bit_history(bit_data, config_loader, selected_plc, bit_history_d
         bit_history_data.set([])
 
 def create_resource_click_handler(config, inputs, selected_resource, selected_plc, selected_view, plc_bits_data, config_loader):
-    """Create handler for resource button clicks"""
+    """Create handler for resource button clicks with proper click tracking"""
+    # Track previous click counts to detect NEW clicks only
+    previous_resource_clicks = {}
+    
     @reactive.effect
     async def handle_resource_clicks():
         sftp_hosts = config.get('sftp_hosts', [])
@@ -170,12 +173,18 @@ def create_resource_click_handler(config, inputs, selected_resource, selected_pl
                 btn_id = f"resource_{j}"
                 if hasattr(inputs, btn_id):
                     btn_input = getattr(inputs, btn_id)
-                    if btn_input() > 0:
+                    current_count = btn_input()
+                    
+                    # Get previous count for this button (default to 0)
+                    prev_count = previous_resource_clicks.get(btn_id, 0)
+                    
+                    # Only process if there's a NEW click (current > previous)
+                    if current_count > prev_count:
                         hostname = host.get("hostname", host.get("ip_address"))
                         selected_resource.set(resource)
                         selected_plc.set(hostname)
                         selected_view.set("resource")
-                        print(f"Selected resource: {resource} on PLC: {hostname}")
+                        print(f"NEW click - Selected resource: {resource} on PLC: {hostname}")
                         print(f"Selected view: {selected_view()}")
 
                         # --- Fetch plc_bits for this PLC and resource ---
@@ -190,11 +199,17 @@ def create_resource_click_handler(config, inputs, selected_resource, selected_pl
                         print("Results from plc_bits view:")
                         for row in results:
                             print(row)
+                    
+                    # Update the stored count
+                    previous_resource_clicks[btn_id] = current_count
 
     return handle_resource_clicks
 
 def create_plc_click_handler(config, inputs, selected_plc, selected_resource, selected_view, plc_bits_data, config_loader):
-    """Create handler for PLC button clicks"""
+    """Create handler for PLC button clicks with proper click tracking"""
+    # Track previous click counts to detect NEW clicks only
+    previous_plc_clicks = {}
+    
     @reactive.effect
     async def handle_plc_clicks():
         sftp_hosts = config.get('sftp_hosts', [])
@@ -206,9 +221,15 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
             btn_id = f"plc_{i}"
             if hasattr(inputs, btn_id):
                 btn_input = getattr(inputs, btn_id)
-                if btn_input() > 0:
+                current_count = btn_input()
+                
+                # Get previous count for this button (default to 0)
+                prev_count = previous_plc_clicks.get(btn_id, 0)
+                
+                # Only process if there's a NEW click (current > previous)
+                if current_count > prev_count:
                     hostname = host.get("hostname", host.get("ip_address"))
-                    print(f"PLC clicked: {hostname}")
+                    print(f"NEW click - PLC clicked: {hostname}")
                     selected_plc.set(hostname)
                     selected_resource.set(None)
                     selected_view.set("ALL")
@@ -224,6 +245,9 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
                     print("Results for PLC:", hostname)
                     for row in results:
                         print(row)
+                
+                # Update the stored count
+                previous_plc_clicks[btn_id] = current_count
 
     return handle_plc_clicks
 
