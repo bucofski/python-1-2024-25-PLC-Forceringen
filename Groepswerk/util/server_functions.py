@@ -345,16 +345,26 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
 
     return handle_save_reason_on_enter
 
-def create_back_button_handler(inputs, selected_resource, selected_view):
+def create_back_button_handler(inputs, selected_resource, selected_view, plc_bits_data, config_loader, selected_plc):
     """Create handler for back button click"""
     @reactive.effect
     @reactive.event(inputs.back_to_list)
-    def handle_back_button():
+    async def handle_back_button():
         # Return to the appropriate view based on what was selected
         if selected_resource():
             selected_view.set("resource")
+            # Refresh the resource data
+            repo = PLCBitRepositoryAsync(config_loader)
+            results = await repo.fetch_plc_bits(selected_plc(), resource_name=selected_resource())
+            plc_bits_data.set(results)
+            print(f"Refreshed data for resource {selected_resource()} on PLC {selected_plc()}")
         else:
             selected_view.set("ALL")
+            # Refresh the PLC data
+            repo = PLCBitRepositoryAsync(config_loader)
+            results = await repo.fetch_plc_bits(selected_plc())
+            plc_bits_data.set(results)
+            print(f"Refreshed data for PLC {selected_plc()}")
 
     return handle_back_button
 

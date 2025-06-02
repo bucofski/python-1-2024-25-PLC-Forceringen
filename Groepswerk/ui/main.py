@@ -94,7 +94,7 @@ def server(inputs, outputs, session):
         inputs, selected_bit_detail, selected_plc, selected_resource, save_message, config_loader, bit_history_data
     )
     create_back_button_handler(
-        inputs, selected_resource, selected_view
+        inputs, selected_resource, selected_view, plc_bits_data, config_loader, selected_plc
     )
 
     @outputs()
