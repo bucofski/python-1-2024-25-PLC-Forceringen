@@ -8,16 +8,16 @@ document.addEventListener('DOMContentLoaded', function() {
     // Delegate event listener for all current and future text inputs
     document.addEventListener('keydown', function(event) {
         const target = event.target;
-        
+
         // Check if it's a reason input field and Enter was pressed
         if (target.id && target.id.startsWith('reason_input_') && event.key === 'Enter') {
             event.preventDefault();
-            
+
             if (target.id === 'reason_input_detail') {
                 // Handle detail view
                 const forcedInput = document.getElementById('forced_input_detail');
                 const forcedValue = forcedInput ? forcedInput.value : '';
-                
+
                 // Trigger a custom event for detail view
                 Shiny.setInputValue('save_reason_detail_triggered', {
                     reasonValue: target.value,
@@ -27,11 +27,11 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 // Handle table view (existing functionality)
                 const index = target.id.split('_')[2];
-                
+
                 // Get the value from the forced_by field too
                 const forcedInput = document.getElementById('forced_input_' + index);
                 const forcedValue = forcedInput ? forcedInput.value : '';
-                
+
                 // Trigger a custom event that Shiny can listen for
                 Shiny.setInputValue('save_reason_triggered', {
                     index: index,
@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 """)
+
 
 def create_resource_buttons_ui(config, inputs, selected_resource, selected_plc):
     """Create resource buttons UI based on current selection"""
@@ -90,6 +91,7 @@ def create_resource_buttons_ui(config, inputs, selected_resource, selected_plc):
         )
     return ui.tags.div(*buttons)
 
+
 def create_table_css():
     """Create CSS for input fields and tables"""
     return ui.tags.style("""
@@ -127,6 +129,7 @@ def create_table_css():
             margin: 0;
         }
     """)
+
 
 def create_resource_table(data, selected_resource, selected_plc):
     """Create table for resource view"""
@@ -219,6 +222,7 @@ def create_resource_table(data, selected_resource, selected_plc):
         ui.output_text("save_status")
     )
 
+
 def create_plc_table(data, selected_plc):
     """Create table for PLC view (all resources)"""
     if not data:
@@ -297,6 +301,7 @@ def create_plc_table(data, selected_plc):
         ),
         ui.output_text("save_status")
     )
+
 
 def create_detail_view(bit_data, history_data):
     """Create detailed view for a specific bit"""
@@ -377,7 +382,8 @@ def create_detail_view(bit_data, history_data):
                 ),
                 ui.tags.div(
                     ui.tags.strong("Second Comment: "),
-                    bit_data.get('second_comment', 'None') if bit_data.get('second_comment') != 'None' else 'No comment',
+                    bit_data.get('second_comment', 'None') if bit_data.get(
+                        'second_comment') != 'None' else 'No comment',
                     style="margin-bottom: 10px;"
                 ),
                 style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;"
@@ -480,6 +486,7 @@ def create_detail_view(bit_data, history_data):
         style="max-width: 1000px; margin: 0 auto;"
     )
 
+
 def create_config_view(yaml_path):
     """Create configuration editing view"""
     # Load and display the content of plc.yaml for editing
@@ -520,6 +527,7 @@ def create_config_view(yaml_path):
         style="width: 800px; margin: 0 auto; text-align: center;"
     )
 
+
 def create_output_view():
     """Create output view for terminal display"""
     return ui.tags.div(
@@ -527,6 +535,7 @@ def create_output_view():
         ui.tags.h2("Output"),
         ui.output_text_verbatim("terminal_output", placeholder=True)
     )
+
 
 def create_app_ui(host_options):
     """Create the main application UI"""
@@ -552,9 +561,23 @@ def create_app_ui(host_options):
                 transition: transform 0.2s cubic-bezier(.42,0,.58,1);
                 text-align: center;
                 z-index: 110;
+                display: flex;
+                flex-direction: column;
             }}
             .sidebar.collapsed {{
                 transform: translateX(-220px);
+            }}
+            .sidebar-content {{
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+            }}
+            .sidebar-top {{
+                flex: 1;
+            }}
+            .sidebar-bottom {{
+                margin-top: auto;
+                padding-bottom: 60px;
             }}
             .main-panel {{
                 margin-left: 240px;
@@ -666,29 +689,36 @@ def create_app_ui(host_options):
             # Sidebar
             ui.tags.div(
                 ui.tags.div(
-                    ui.input_select(
-                        "host_select",
-                        "Select PLC:",
-                        choices=host_options,
+                    # Top section of sidebar
+                    ui.tags.div(
+                        ui.tags.div(
+                            ui.input_select(
+                                "host_select",
+                                "Select PLC:",
+                                choices=host_options,
+                            ),
+                            style="margin-bottom: 32px;"
+                        ),
+                        # Refreshes buttons stays at the very top (right after host select)
+                        ui.tags.div(
+                            ui.input_action_button(
+                                "start_btn", "Get Forcing", class_="button button1",
+                                style="width:90%; margin-bottom:8px;"
+                            ),
+                        ),
+                        # Dynamic resource/PLC buttons come next
+                        ui.output_ui("resource_buttons"),
+                        class_="sidebar-top"
                     ),
-                    style="margin-bottom: 32px;"
-                ),
-                # Refreshes buttons stays at the very top (right after host select)
-                ui.tags.div(
-                    ui.input_action_button(
-                        "start_btn", "Get Forcing", class_="button button1",
-                        style="width:90%; margin-bottom:8px;"
+                    # Bottom section of sidebar for Config and Output buttons
+                    ui.tags.div(
+                        ui.input_action_button("view_output", "Output", class_="button button1",
+                                               style="width:90%; margin-bottom:8px;"),
+                        ui.input_action_button("view_config", "Config", class_="button button1",
+                                               style="width:90%; margin-bottom:8px;"),
+                        class_="sidebar-bottom"
                     ),
-                ),
-                # Dynamic resource/PLC buttons come next
-                ui.output_ui("resource_buttons"),
-                # View selector buttons and the rest follow below
-                ui.tags.div(
-                    ui.input_action_button("view_output", "Output", class_="button button1",
-                                           style="width:90%; margin-bottom:8px;"),
-                    ui.input_action_button("view_config", "Config", class_="button button1",
-                                           style="width:90%; margin-bottom:24px;"),
-                    style="margin-bottom: 16px;"
+                    class_="sidebar-content"
                 ),
                 class_="sidebar",
                 id="sidebar"
