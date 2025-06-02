@@ -16,7 +16,7 @@ import os
 
 # Read host options from YAML
 script_dir = os.path.dirname(os.path.abspath(__file__))
-yaml_path = os.path.join(script_dir, "..", "Groepswerk", "config", "plc.yaml")
+yaml_path = os.path.join(script_dir, "..", "config", "plc.yaml")
 
 try:
     config_loader = ConfigLoader("../config/plc.yaml")
