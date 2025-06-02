@@ -101,6 +101,7 @@ def create_table_css():
             border: 1px solid #ddd;
             border-radius: 4px;
             box-sizing: border-box;
+            white-space: nowrap;  # Add this line
         }
         input[type="text"]:focus {
             border-color: #FB4400;
@@ -123,6 +124,7 @@ def create_table_css():
             padding: 8px;
             border: 1px solid #dee2e6;
             vertical-align: top;
+            white-space: nowrap;  # Add this line
         }
         .data-grid {
             border-collapse: collapse;
@@ -555,29 +557,30 @@ def create_app_ui(host_options):
             .sidebar {{
                 background: {COLOR};
                 padding: 20px; color: white;
-                min-height: 100vh;
+                height: calc(100vh - 70px);
                 width: 220px; box-sizing: border-box;
                 position: fixed; top: 70px; left: 0;
                 transition: transform 0.2s cubic-bezier(.42,0,.58,1);
                 text-align: center;
                 z-index: 110;
-                display: flex;
-                flex-direction: column;
+                overflow-y: auto;
             }}
             .sidebar.collapsed {{
                 transform: translateX(-220px);
             }}
             .sidebar-content {{
-                flex: 1;
                 display: flex;
                 flex-direction: column;
+                min-height: 100%;
             }}
             .sidebar-top {{
                 flex: 1;
             }}
             .sidebar-bottom {{
-                margin-top: auto;
-                padding-bottom: 60px;
+                margin-top: 20px;
+                padding-top: 10px;
+                border-top: 1px solid rgba(255,255,255,0.2);
+                padding-bottom: 20px;
             }}
             .main-panel {{
                 margin-left: 240px;
@@ -602,7 +605,6 @@ def create_app_ui(host_options):
                 0 1px 4px 0 rgba(0,0,0,0.10),
                 0 0 0 3px rgba(255,56,1,0.10);
                 transition: box-shadow 0.3s;
-
             }}
             """
         ),
@@ -632,6 +634,7 @@ def create_app_ui(host_options):
               color: black;
               border: 2px solid #90D5FF;
               font-family: 'VAGRoundedLight';
+              white-space: nowrap;  # Add this line
             }
             .button1.selected {
               background-color: #90D5FF;
@@ -697,14 +700,16 @@ def create_app_ui(host_options):
                                 "Select PLC:",
                                 choices=host_options,
                             ),
-                            style="margin-bottom: 32px;"
+                            style="margin-bottom: 8px;"
                         ),
                         # Refreshes buttons stays at the very top (right after host select)
                         ui.tags.div(
                             ui.input_action_button(
                                 "start_btn", "Get Forcing", class_="button button1",
-                                style="width:90%; margin-bottom:8px;"
+                                style="width:90%; margin-bottom:20px;"
+
                             ),
+                            "Show Forcing:",
                         ),
                         # Dynamic resource/PLC buttons come next
                         ui.output_ui("resource_buttons"),
