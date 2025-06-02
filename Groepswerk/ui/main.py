@@ -110,6 +110,10 @@ def server(inputs, outputs, session):
     @reactive.effect
     @reactive.event(inputs.start_btn)
     def on_start():
+        # Switch to output view first
+        selected_view.set("output")
+        
+        # Then run the distributor
         selected_host_value = inputs.host_select()
         captured_output = run_distributor_and_capture_output(config_loader, selected_host_value)
         terminal_text.set(captured_output or "[No output produced]")
