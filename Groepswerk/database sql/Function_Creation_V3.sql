@@ -20,68 +20,98 @@ DECLARE
     v_incoming_bit_numbers TEXT[];
     v_bit_id INTEGER;
     v_existing_force_status BOOLEAN;
+    v_is_empty_json BOOLEAN := FALSE;
 BEGIN
     -- Start transaction
     BEGIN
         -- 1. Ensure PLC exists (using correct column name: plc_name)
-        INSERT INTO plc (plc_name) 
-        VALUES (p_plc_name) 
+        INSERT INTO plc (plc_name)
+        VALUES (p_plc_name)
         ON CONFLICT (plc_name) DO NOTHING;
-        
+
         SELECT plc_id INTO v_plc_id FROM plc WHERE plc_name = p_plc_name;
-        
+
         IF v_plc_id IS NULL THEN
             RETURN QUERY SELECT FALSE::BOOLEAN, 'Failed to create/find PLC: ' || p_plc_name, 0;
             RETURN;
         END IF;
 
         -- 2. Ensure Resource exists (using correct column name: resource_name)
-        INSERT INTO resource (resource_name) 
-        VALUES (p_resource_name) 
+        INSERT INTO resource (resource_name)
+        VALUES (p_resource_name)
         ON CONFLICT (resource_name) DO NOTHING;
-        
-        SELECT resource_id INTO v_resource_id FROM resource 
+
+        SELECT resource_id INTO v_resource_id FROM resource
         WHERE resource_name = p_resource_name;
-        
+
         IF v_resource_id IS NULL THEN
             RETURN QUERY SELECT FALSE::BOOLEAN, 'Failed to create/find Resource: ' || p_resource_name, 0;
             RETURN;
         END IF;
 
-        -- 3. Extract all bit_numbers from the incoming JSON array
+        -- 3. Check if JSON array is empty or null
+        IF p_bits_data IS NULL OR jsonb_array_length(p_bits_data) = 0 THEN
+            v_is_empty_json := TRUE;
+
+            -- Update bit_force_reason for all bits that will be deactivated
+            UPDATE bit_force_reason
+            SET deforced_at = NOW()
+            WHERE bit_id IN (
+                SELECT bit_id FROM resource_bit
+                WHERE plc_id = v_plc_id
+                AND resource_id = v_resource_id
+                AND force_active = TRUE
+            ) AND deforced_at IS NULL;
+
+            -- Deactivate ALL bits for this PLC/resource combination
+            UPDATE resource_bit
+            SET force_active = FALSE
+            WHERE plc_id = v_plc_id
+            AND resource_id = v_resource_id
+            AND force_active = TRUE;
+
+            -- Return success message for empty JSON case
+            RETURN QUERY SELECT
+                TRUE::BOOLEAN,
+                'Empty JSON received - all bits set to force_active = FALSE for ' || p_plc_name || '/' || p_resource_name,
+                0;
+            RETURN;
+        END IF;
+
+        -- 4. Extract all bit_numbers from the incoming JSON array (only if not empty)
         SELECT ARRAY(
             SELECT elem->>'name_id'
             FROM jsonb_array_elements(p_bits_data) AS elem
             WHERE elem->>'name_id' IS NOT NULL
         ) INTO v_incoming_bit_numbers;
 
-        -- 4. Update bit_force_reason for bits that will be deactivated (not in incoming array)
-        UPDATE bit_force_reason 
-        SET deforced_at = NOW() 
+        -- 5. Update bit_force_reason for bits that will be deactivated (not in incoming array)
+        UPDATE bit_force_reason
+        SET deforced_at = NOW()
         WHERE bit_id IN (
-            SELECT bit_id FROM resource_bit 
-            WHERE plc_id = v_plc_id 
-            AND resource_id = v_resource_id 
+            SELECT bit_id FROM resource_bit
+            WHERE plc_id = v_plc_id
+            AND resource_id = v_resource_id
             AND force_active = TRUE
             AND bit_number <> ALL(v_incoming_bit_numbers)
         ) AND deforced_at IS NULL;
 
-        -- 5. Deactivate bits that are NOT in the incoming array
-        UPDATE resource_bit 
-        SET force_active = FALSE 
-        WHERE plc_id = v_plc_id 
-        AND resource_id = v_resource_id 
+        -- 6. Deactivate bits that are NOT in the incoming array
+        UPDATE resource_bit
+        SET force_active = FALSE
+        WHERE plc_id = v_plc_id
+        AND resource_id = v_resource_id
         AND force_active = TRUE
         AND bit_number <> ALL(v_incoming_bit_numbers);
 
-        -- 6. Process each bit in the JSON array
+        -- 7. Process each bit in the JSON array
         FOR v_bit_record IN SELECT jsonb_array_elements(p_bits_data)
         LOOP
             -- Check if bit exists and its current force_active status BEFORE insert/update
             SELECT force_active INTO v_existing_force_status
-            FROM resource_bit 
-            WHERE plc_id = v_plc_id 
-            AND resource_id = v_resource_id 
+            FROM resource_bit
+            WHERE plc_id = v_plc_id
+            AND resource_id = v_resource_id
             AND bit_number = v_bit_record->>'name_id';
 
             -- Insert/Update each bit (using correct column names)
