@@ -11,11 +11,11 @@ SELECT
     b.kks,
     b.comment,
     b.second_comment,
-	b.var_type,
+    b.var_type,
     b.value,
     b.force_active,
     fr.forced_at AS forced_at,
-	fr.forced_by,
+    fr.forced_by,
     fr.reason
 FROM resource_bit b
 JOIN plc p ON p.plc_id = b.plc_id
@@ -26,6 +26,7 @@ LEFT JOIN bit_force_reason fr ON fr.bit_id = b.bit_id
         FROM bit_force_reason fr2
         WHERE fr2.bit_id = b.bit_id
     )
+WHERE b.force_active = true
 ORDER BY p.plc_name, r.resource_name, b.bit_number;
 
 
