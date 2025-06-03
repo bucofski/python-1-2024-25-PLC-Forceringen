@@ -37,7 +37,7 @@ sftp_hosts:
     resources:
       - "NIET"
       - "KMOR"
-      - "WT1"
+      - "WT2"
     db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
 
   - hostname: "TDS"

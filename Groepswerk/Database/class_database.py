@@ -36,9 +36,17 @@ class DatabaseSearcher:
         :return: List of dictionaries with search results.
         """
 
+        processed_results = []
+
         if not item_list:
             print("Item list is empty. Query aborted.")
-            return []
+            processed_results.append({
+                        "department_name": department_name,
+                        "PLC": plc,
+                        "resource": resource
+                    })
+            return processed_results
+
 
         # Prepare search terms and mapping outside query loop
         search_items = [item[0] for item in item_list]
@@ -88,7 +96,7 @@ if __name__ == "__main__":
     start = datetime.now()
 
     # Use ConfigLoader to load configuration from YAML
-    config_loader = ConfigLoader("config/plc.yaml")
+    config_loader = ConfigLoader("../config/plc.yaml")
     config = config_loader.config
     department_name = config.get("department_name", "UNKNOWN")
 
@@ -97,11 +105,11 @@ if __name__ == "__main__":
 
     # process and search within a single context (connection)
     with DatabaseSearcher(db_path) as searcher:
-        file_reader = FileReader("BTEST_NIET.dat")
+        file_reader = FileReader("../tests/BTEST_NIET.dat")
         words_list = file_reader.read_and_parse_file()
         processed_list = list(DataProcessor.convert_and_process_list(words_list))
         custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
-        results = searcher.search(processed_list, query_template=custom_query, department_name="bt2", plc="BTEST", resource="NIET")
+        results = searcher.search(processed_list, query_template=custom_query, department_name="BT2", plc="BTEST", resource="NIET")
 
     end = datetime.now()
     print(f"Time taken: {(end - start).total_seconds()} seconds")

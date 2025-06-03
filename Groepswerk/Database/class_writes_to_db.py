@@ -36,17 +36,22 @@ class BitConversionDBWriter(BitConversion):
         if not processed_list:
             print("No data to process")
             return
-
         # Get PLC and resource from first record (assuming all records have same PLC/resource)
         plc_name = processed_list[0].get("PLC")
         resource_name = processed_list[0].get("resource")
+        bit_name = processed_list[0].get("name_id")
 
+        print(f"PLC: {plc_name}, Resource: {resource_name}")
         if not plc_name or not resource_name:
             print("Error: Missing PLC or resource name in data")
             return
+        elif plc_name and resource_name and not bit_name:
+            processed_list = []
+            bits_json = json.dumps(processed_list)
+        else:
+            bits_json = json.dumps(processed_list)
 
         # Convert processed list to JSON format for the procedure
-        bits_json = json.dumps(processed_list)
 
         conn = await self.repo._get_connection()
         try:
@@ -99,8 +104,8 @@ class BitConversionDBWriter(BitConversion):
 if __name__ == "__main__":
     async def main():
         try:
-            config_loader = ConfigLoader("config/plc.yaml")
-            words_list = FileReader("BTEST_NIET.dat").read_and_parse_file()
+            config_loader = ConfigLoader("../config/plc.yaml")
+            words_list = FileReader("../tests/BTEST_NIET.dat").read_and_parse_file()
             data_list = list(DataProcessor.convert_and_process_list(words_list))
 
             db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
