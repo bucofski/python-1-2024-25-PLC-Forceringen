@@ -164,13 +164,6 @@ def server(inputs, outputs, session):
 
             update_ui_components(config_loader, inputs, selected_resource, resource_buttons_trigger)
 
-            create_resource_click_handler(
-                config, inputs, selected_resource, selected_plc, selected_view, plc_bits_data, config_loader
-            )
-            
-            create_plc_click_handler(
-                config, inputs, selected_plc, selected_resource, selected_view, plc_bits_data, config_loader
-            )
 
             await sync_with_database(config_loader, save_message, session)
 
