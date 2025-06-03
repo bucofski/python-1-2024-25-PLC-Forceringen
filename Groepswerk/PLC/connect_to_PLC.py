@@ -1,10 +1,47 @@
+"""
+SFTP Client Module
+
+Information:
+    This module provides functionality for connecting to SFTP servers and downloading files.
+    It includes a class for managing SSH/SFTP connections and methods for file operations.
+    The module can be run as a script with interactive host selection.
+
+Date: 03/06/2025
+Author: TOVY
+"""
+
 from Groepswerk.util.class_config_loader import ConfigLoader
 import paramiko
 import os
 
 
 class SFTPClient:
+    """
+    Information:
+        A client for connecting to SFTP servers and downloading files.
+        Manages SSH and SFTP connections and provides methods for file operations.
+
+    Parameters:
+        Input: Connection details including hostname, port, username, and password
+
+    Date: 03/06/2025
+    Author: TOVY
+    """
     def __init__(self, hostname, port, username, password):
+        """
+        Information:
+            Initialize the SFTP client with connection parameters.
+            Sets up initial state with no active connections.
+
+        Parameters:
+            Input: hostname - The remote server hostname or IP address
+                  port - The SSH port number
+                  username - The SSH username
+                  password - The SSH password
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
         self.hostname = hostname
         self.port = port
         self.username = username
@@ -13,7 +50,15 @@ class SFTPClient:
         self.sftp = None
 
     def connect(self):
-        """Establish SSH and SFTP connection."""
+        """
+        Information:
+            Establish SSH and SFTP connections to the remote server.
+            Uses AutoAddPolicy for accepting unknown host keys.
+            Provides feedback on connection status.
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         try:
@@ -27,7 +72,19 @@ class SFTPClient:
             print(f"Connection error: {e}")
 
     def download_file(self, remote_file, local_file):
-        """Download a remote file to a local path, creating directories if needed."""
+        """
+        Information:
+            Download a remote file to a local path.
+            Creates the necessary directories if they don't exist.
+            Provides feedback on download status.
+
+        Parameters:
+            Input: remote_file - Path to the file on the remote server
+                  local_file - Path where the file should be saved locally
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
         if self.sftp is None:
             print("Call connect() before download.")
             return
@@ -39,7 +96,19 @@ class SFTPClient:
             print(f"Error downloading {remote_file}: {e}")
 
     def download_files(self, remote_files, local_base_dir):
-        """Download multiple files with dynamic local naming, creating base dir if needed."""
+        """
+        Information:
+            Download multiple files with dynamic local naming.
+            Creates a base directory if it doesn't exist.
+            Names local files based on components of the remote path.
+
+        Parameters:
+            Input: remote_files - List of paths to files on the remote server
+                  local_base_dir - Base directory for storing downloaded files locally
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
         if self.sftp is None:
             print("Call connect() before download.")
             return
@@ -55,6 +124,14 @@ class SFTPClient:
             self.download_file(remote_file, local_path)
 
     def close(self):
+        """
+        Information:
+            Close the SFTP and SSH connections.
+            Provides feedback when connections are closed.
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
         if self.sftp:
             self.sftp.close()
         if self.ssh:

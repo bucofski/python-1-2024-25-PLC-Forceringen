@@ -1,3 +1,15 @@
+"""
+Database Search Module
+
+Information:
+    This module provides functionality for connecting to Microsoft Access databases and
+    performing searches with batch processing. It's designed to handle large datasets
+    efficiently and integrate with other components of the system.
+
+Date: 03/06/2025
+Author: TOVY
+"""
+
 from datetime import datetime
 import pyodbc
 from Groepswerk.Database.class_making_querry import FileReader, DataProcessor
@@ -5,8 +17,29 @@ from Groepswerk.util.class_config_loader import ConfigLoader
 
 
 class DatabaseSearcher:
+    """
+    Information:
+        A class for searching Microsoft Access databases using context management.
+        Handles database connections, query execution, and result processing.
+
+    Parameters:
+        Input: Path to an Access database file (*.mdb, *.accdb)
+
+    Date: 03/06/2025
+    Author: TOVY
+    """
     def __init__(self, dbs_path):
-        """Initialize the database connection string and connection to None."""
+        """
+        Information:
+            Initialize the database searcher with a path to the database file.
+            Sets up the connection string but doesn't establish a connection yet.
+
+        Parameters:
+            Input: dbs_path - Path to the Access database file
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
         self.db_path = dbs_path
         self.connection_string = (
             r"DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};"
@@ -15,25 +48,54 @@ class DatabaseSearcher:
         self.conn = None
 
     def __enter__(self):
-        """Context management entry: connect to the database."""
+        """
+        Information:
+            Context management entry method that establishes a database connection.
+            Used when the class is instantiated in a 'with' statement.
+
+        Parameters:
+            Output: Self reference for use in the context manager
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
         self.conn = pyodbc.connect(self.connection_string)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """Context management exit: close the connection."""
+        """
+        Information:
+            Context management exit method that closes the database connection.
+            Automatically called when exiting a 'with' block.
+
+        Parameters:
+            Input: exc_type - Exception type if raised
+                  exc_val - Exception value if raised
+                  exc_tb - Exception traceback if raised
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
         if self.conn:
             self.conn.close()
 
     def search(self, item_list, query_template, department_name, plc, resource):
         """
-        Searches the database with a given query template.
+        Information:
+            Searches the database with a given query template.
+            Processes search results into a standardized dictionary format.
+            Uses batch processing to handle large item lists efficiently.
 
-        :param item_list: List of tuples [(search_name, value, extra_value), ...]
-        :param query_template: SQL query template with {placeholders} for values.
-        :param department_name: String from YAML
-        :param plc: PLC name (e.g. 'BTEST')
-        :param resource: Resource (e.g. 'NIET')
-        :return: List of dictionaries with search results.
+        Parameters:
+            Input: item_list - List of tuples [(search_name, value, extra_value), ...]
+                  query_template - SQL query template with {placeholders} for values
+                  department_name - String from YAML configuration
+                  plc - PLC name (e.g. 'BTEST')
+                  resource - Resource name (e.g. 'NIET')
+            Output: List of dictionaries with search results
+
+        Date: 03/06/2025
+        Author: TOVY
         """
 
         processed_results = []
@@ -93,6 +155,16 @@ class DatabaseSearcher:
 
 
 if __name__ == "__main__":
+    """
+        Information:
+            Main execution block that demonstrates the usage of the DatabaseSearcher class.
+            This script:
+            1. Loads configuration from a YAML file
+            2. Establishes a database connection
+            3. Reads and processes data from a file
+            4. Executes a database query with the processed data
+            5. Prints the time taken and the search results
+    """
     start = datetime.now()
 
     # Use ConfigLoader to load configuration from YAML

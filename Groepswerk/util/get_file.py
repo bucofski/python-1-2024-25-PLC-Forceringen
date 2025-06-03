@@ -5,16 +5,29 @@ import asyncpg
 
 class DatabaseConnection:
     """
-    Unified database connection class that provides both synchronous and asynchronous
-    database connections with consistent interface.
+    Information:
+        Unified database connection class that provides both synchronous and asynchronous
+        database connections with a consistent interface. Supports context managers,
+        automatic async detection, and connection management.
+
+    Parameters:
+        Input: Configuration loader object that provides database connection parameters
+
+    Date: 03/06/2025
+    Author: TOVY
     """
 
     def __init__(self, config_loader):
         """
-        Initialize with a configuration loader that provides database connection parameters.
+        Information:
+            Initialize with a configuration loader that provides database connection parameters.
+            Sets up instance variables for storing connection objects.
 
-        Args:
-            config_loader: An instance that provides get_database_info() method
+        Parameters:
+            Input: config_loader - An instance that provides get_database_info() method
+
+        Date: 03/06/2025
+        Author: TOVY
         """
         self.config_loader = config_loader
         # For storing connections when using instance mode
@@ -23,7 +36,17 @@ class DatabaseConnection:
         self.async_connection = None
 
     def _get_db_config(self):
-        """Get database configuration from the config loader with default values."""
+        """
+        Information:
+            Get database configuration from the config loader with default values.
+            This is an internal helper method used by connection methods.
+
+        Parameters:
+            Output: Dictionary with database connection parameters
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
         db_config = self.config_loader.get_database_info()
         return {
             "host": db_config.get("host", "localhost"),
@@ -35,11 +58,16 @@ class DatabaseConnection:
 
     def connect(self):
         """
-        Establish a synchronous connection to the database.
-        Stores the connection as an instance attribute.
+        Information:
+            Establish a synchronous connection to the database.
+            Stores the connection and cursor as instance attributes.
+            Provides feedback about connection status.
 
-        Returns:
-            bool: True if connection successful, False otherwise
+        Parameters:
+            Output: Boolean indicating connection success or failure
+
+        Date: 03/06/2025
+        Author: TOVY
         """
         try:
             db_config = self._get_db_config()
@@ -53,11 +81,16 @@ class DatabaseConnection:
 
     async def connect_async(self):
         """
-        Establish an asynchronous connection to the database.
-        Stores the connection as an instance attribute.
+        Information:
+            Establish an asynchronous connection to the database.
+            Stores the connection as an instance attribute.
+            Provides feedback about connection status.
 
-        Returns:
-            bool: True if connection successful, False otherwise
+        Parameters:
+            Output: Boolean indicating connection success or failure
+
+        Date: 03/06/2025
+        Author: TOVY
         """
         try:
             db_config = self._get_db_config()
@@ -69,7 +102,15 @@ class DatabaseConnection:
             return False
 
     def disconnect(self):
-        """Close the synchronous database connection."""
+        """
+        Information:
+            Close the synchronous database connection and cursor.
+            Resets instance attributes to None after closing.
+            Provides feedback when connection is closed.
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
         if self.sync_cursor:
             self.sync_cursor.close()
             self.sync_cursor = None
@@ -79,7 +120,15 @@ class DatabaseConnection:
             print("Database connection closed")
 
     async def disconnect_async(self):
-        """Close the asynchronous database connection."""
+        """
+        Information:
+            Close the asynchronous database connection.
+            Resets instance attribute to None after closing.
+            Provides feedback when connection is closed.
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
         if self.async_connection:
             await self.async_connection.close()
             self.async_connection = None
@@ -87,16 +136,19 @@ class DatabaseConnection:
 
     async def get_connection(self, is_async=None):
         """
-        Get a database connection in either synchronous or asynchronous mode.
-        This method doesn't store the connection as an instance attribute.
+        Information:
+            Get a database connection in either synchronous or asynchronous mode.
+            This method doesn't store the connection as an instance attribute.
+            Can automatically detect if called from an async context.
 
-        Args:
-            is_async: Override automatic detection of async context
+        Parameters:
+            Input: is_async - Override automatic detection of async context
                    True for asyncpg connection, False for psycopg2 connection,
                    None for automatic detection
+            Output: Database connection object (psycopg2 or asyncpg connection)
 
-        Returns:
-            Database connection object (psycopg2 or asyncpg connection)
+        Date: 03/06/2025
+        Author: TOVY
         """
         # If is_async is None, auto-detect based on calling context
         if is_async is None:

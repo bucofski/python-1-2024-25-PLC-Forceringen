@@ -5,12 +5,47 @@ from Groepswerk.Database.class_database import DatabaseSearcher
 
 
 class BitConversion:
+    """
+    Information:
+        A class for converting hexadecimal data into appropriate Python data types based on
+        their specified variable types from database query results.
+
+    Parameters:
+        Input: List of dictionaries containing variable data with 'Value' and 'VAR_Type' keys
+
+    Date: 03/06/2025
+    Author: TOVY
+    """
     def __init__(self, data_list):
-        """Initialize with a list of dictionaries from the database search."""
+        """
+        Information:
+            Initialize the BitConversion class with data to be converted.
+
+        Parameters:
+            Input: data_list - A list of dictionaries from the database search
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
         self.data_list = data_list
 
     def convert_variable_list(self):
-        """Convert and process values based on type. Modifies self.data_list in-place."""
+        """
+        Information:
+            Convert and process values based on their respective types.
+            Supported conversions:
+            - REAL: Converts hex to single-precision float
+            - LINT: Converts hex to integer
+            - DOUBLE: Converts hex to double-precision float
+            - BOOL: Converts hex to boolean
+            If conversion fails, the Value will be set to "Invalid {type_}"
+
+        Parameters:
+            Output: The modified list with converted values
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
         for sublist in self.data_list:
             value = sublist.get("Value", [])
             type_ = sublist.get("VAR_Type")
@@ -41,6 +76,16 @@ class BitConversion:
 
 
 if __name__ == "__main__":
+    """
+    Information:
+        Main execution block that demonstrates the usage of the BitConversion class.
+        Process flow:
+        1. Reads and parses data from a file
+        2. Processes the data
+        3. Searches a database for the processed data
+        4. Converts the results using BitConversion
+        5. Prints the time taken and the converted results
+    """
     start = datetime.now()
 
     # Read and process the input file only once

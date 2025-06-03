@@ -1,3 +1,15 @@
+"""
+PLC Management and Monitoring Shiny Application
+
+Information:
+    This module provides a web-based interface for managing and monitoring PLCs.
+    It allows users to view PLC resources, bit statuses, run operations,
+    edit configuration, and interact with the database.
+
+Date: 03/06/2025
+Author: TOVY
+"""
+
 from Groepswerk.util.class_config_loader import ConfigLoader
 from shiny import App, ui, render, reactive
 from Groepswerk.ui.ui_components import (
@@ -33,6 +45,19 @@ app_ui = create_app_ui(host_options)
 
 
 def server(inputs, outputs, session):
+    """
+    Information:
+        Defines the server-side logic for the Shiny application.
+        Handles reactive values, event handlers, and UI rendering.
+
+    Parameters:
+        Input: inputs - Object containing all input values from the UI
+              outputs - Object for registering output renderers
+              session - The current Shiny session
+
+    Date: 03/06/2025
+    Author: TOVY
+    """
     # Reactive values
     assert session
     terminal_text = reactive.Value("")

@@ -1,3 +1,14 @@
+"""
+Database Writer Module
+
+Information:
+    This module provides functionality for converting bit data and writing it to a database.
+    It handles batch operations, async database connections, and threading for GUI compatibility.
+
+Date: 03/06/2025
+Author: [Insert your name here]
+"""
+
 import json
 from Groepswerk.PLC.class_bit_conversion import BitConversion
 from Groepswerk.PLC.class_fetch_bits import PLCBitRepositoryAsync
@@ -10,18 +21,31 @@ import threading
 
 class BitConversionDBWriter(BitConversion):
     """
-    Inherits BitConversion. After conversion, writes entries to a database using batch procedure.
-    Manages the 'force_active' column: sets force_active=True for given name_ids, and force_active=False for the rest.
-    Uses PLCBitRepositoryAsync for database operations.
+    Information:
+        Inherits from BitConversion class to extend its functionality.
+        After converting bit data, this class writes entries to a database using batch procedures.
+        Manages the 'force_active' column: sets force_active=True for given name_ids,
+        and force_active=False for the rest with the same PLC and resource.
+
+    Parameters:
+        Input: List of bit data to convert and write, ConfigLoader instance
+
+    Date: 03/06/2025
+    Author: CHIV
     """
 
     def __init__(self, data_list, config_loader):
         """
-        Initialize with data list and ConfigLoader instance.
+        Information:
+            Initialize with data list and ConfigLoader instance.
+            Sets up the database repository connection.
 
-        Args:
-            data_list: List of bit data to convert and write
-            config_loader: Instance of ConfigLoader containing DB info
+        Parameters:
+            Input: data_list - List of bit data to convert and write
+                  config_loader - Instance of ConfigLoader containing DB info
+
+        Date: 03/06/2025
+        Author: CHIV
         """
         super().__init__(data_list)
         self.config_loader = config_loader
@@ -29,8 +53,14 @@ class BitConversionDBWriter(BitConversion):
 
     async def write_to_database(self):
         """
-        Asynchronously write the converted bit data to the database using a single batch procedure.
-        Sets force_active=TRUE for the given entries and force_active=FALSE for others with the same PLC and resource.
+        Information:
+            Asynchronously write the converted bit data to the database using a single batch procedure.
+            Sets force_active=TRUE for the given entries and force_active=FALSE for others
+            with the same PLC and resource.
+            Uses a stored procedure to handle the database operations efficiently.
+
+        Date: 03/06/2025
+        Author: CHIV
         """
         processed_list = self.convert_variable_list()
         if not processed_list:
@@ -76,12 +106,24 @@ class BitConversionDBWriter(BitConversion):
 
     def write_to_database_threaded(self):
         """
-        Run the database write operation in a separate thread.
-        This avoids event loop conflicts when running in GUI contexts.
+        Information:
+            Run the database write operation in a separate thread.
+            This avoids event loop conflicts when running in GUI contexts.
+            Creates a new event loop for the thread and manages its lifecycle.
+
+        Date: 03/06/2025
+        Author: CHIV
         """
         
         def run_async_in_thread():
-            """Inner function to run in a separate thread"""
+            """
+            Information:
+                Inner function to run in a separate thread.
+                Creates and manages an event loop for asynchronous operations.
+
+            Date: 03/06/2025
+            Author: CHIV
+            """
             # Create a new event loop for this thread
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
@@ -103,6 +145,15 @@ class BitConversionDBWriter(BitConversion):
 
 if __name__ == "__main__":
     async def main():
+        """
+        Information:
+            Asynchronous main function that orchestrates the full data processing pipeline.
+            Handles configuration loading, file reading, data processing, database queries,
+            and finally writing the results back to the database.
+
+        Date: 03/06/2025
+        Author: CHIV
+        """
         try:
             config_loader = ConfigLoader("../config/plc.yaml")
             words_list = FileReader("../tests/BTEST_NIET.dat").read_and_parse_file()

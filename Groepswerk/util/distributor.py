@@ -1,3 +1,15 @@
+"""
+PLC Data Distributor Module
+
+Information:
+    This module handles the distribution and processing of PLC data.
+    It connects to PLCs via SFTP, downloads force data files,
+    processes them, and writes the data to a database.
+
+Date: 03/06/2025
+Author: TOVY
+"""
+
 import yaml
 import os
 import asyncio
@@ -10,7 +22,20 @@ from Groepswerk.util.class_config_loader import ConfigLoader
 from Groepswerk.Database.class_writes_to_db import BitConversionDBWriter
 
 def select_sftp_host(config_loader):
-    """Select an SFTP host from the configuration."""
+    """
+    Information:
+        Presents a list of available SFTP hosts from the configuration
+        and allows the user to select one or all hosts.
+        Returns the selected host configuration or "all" for all hosts.
+
+    Parameters:
+        Input: config_loader - ConfigLoader instance containing SFTP host configurations
+        Output: Selected host configuration dictionary or "all" string
+
+    Date: 03/06/2025
+    Author: TOVY
+    """
+
     sftp_hosts = config_loader.get_sftp_hosts()
     if not sftp_hosts:
         print("No sftp_hosts found in configuration.")
@@ -36,6 +61,20 @@ def select_sftp_host(config_loader):
 
 
 def main():
+    """
+    Information:
+        Main entry point for the application.
+        Loads configuration, prompts user to select an SFTP host,
+        and processes data for the selected host(s).
+        Tracks and reports the total time taken.
+
+    Parameters:
+        Output: None, but prints status messages to console
+
+    Date: 03/06/2025
+    Author: TOVY
+    """
+
     start = datetime.now()
     # # Load YAML and select SFTP host(s)
     # with open("plc.yaml", "r") as f:
@@ -61,6 +100,25 @@ def main():
 
 
 def run_main_with_host(config_loader, selected_host_name, is_gui_context=False):
+    """
+    Information:
+        Processes data for a specific host. This includes:
+        1. Connecting to the host via SFTP and downloading force data files
+        2. Processing each file to extract bit data
+        3. Converting variable lists and printing results
+        4. Writing the data to the database using the appropriate method
+           based on whether it's running in a GUI context or not
+
+    Parameters:
+        Input: config_loader - ConfigLoader instance with application configuration
+              selected_host_name - String specifying the hostname to process
+              is_gui_context - Boolean indicating if running in GUI context (affects database write method)
+        Output: None, but prints status messages to console
+
+    Date: 03/06/2025
+    Author: TOVY
+    """
+
     start = datetime.now()
 
     sftp_hosts = config_loader.get_sftp_hosts()
