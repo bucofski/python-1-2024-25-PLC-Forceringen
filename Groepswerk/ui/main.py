@@ -144,7 +144,6 @@ def server(inputs, outputs, session):
             return create_detail_view(bit_data, history_data)
         return None
 
-    # Update config save handler to use imported functions
     @reactive.effect
     @reactive.event(inputs.save_config)
     async def save_yaml_config():
@@ -164,10 +163,16 @@ def server(inputs, outputs, session):
 
             update_ui_components(config_loader, inputs, selected_resource, resource_buttons_trigger)
 
-
             await sync_with_database(config_loader, save_message, session)
 
             save_message.set("Configuration saved successfully!")
+            
+            # Reload the webpage using JavaScript injection
+            ui.insert_ui(
+                ui.tags.script("setTimeout(function(){window.location.reload();}, 1000);"),
+                selector="body",
+                where="beforeEnd"
+            )
 
         except Exception as e:
             save_message.set(f"Error saving file: {str(e)}")
