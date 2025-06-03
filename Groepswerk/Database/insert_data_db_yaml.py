@@ -39,13 +39,13 @@ class PLCResourceSync:
     def sync(self, conn):
         """
         Synchronize PLCs and resources between YAML and database (synchronous version).
-        
+
         Args:
             conn: PostgreSQL database connection
         """
         # Extract data from YAML
         self._extract_yaml_data()
-        
+
         with conn:
             with conn.cursor() as cur:
                 # Get existing PLCs and resources from database
@@ -55,15 +55,33 @@ class PLCResourceSync:
                 cur.execute("SELECT resource_name FROM resource")
                 db_resources = {row[0] for row in cur.fetchall()}
 
+                # Get existing PLC-resource pairs to identify removed combinations
+                cur.execute("""
+                    SELECT p.plc_name, r.resource_name 
+                    FROM plc p
+                    JOIN resource_bit rb ON p.plc_id = rb.plc_id
+                    JOIN resource r ON rb.resource_id = r.resource_id
+                    GROUP BY p.plc_name, r.resource_name
+                """)
+                db_plc_resources = {(row[0], row[1]) for row in cur.fetchall()}
+
+                # Find removed PLC-resource combinations
+                removed_plc_resources = db_plc_resources - self.plc_resources
+                for plc_name, resource_name in removed_plc_resources:
+                    print(f"Removing PLC-resource combination: {plc_name}-{resource_name}")
+                    cur.execute("SELECT * FROM delete_plc_resource_bits(%s, %s)", (plc_name, resource_name))
+
                 # Delete PLCs that are in DB but not in YAML
                 plcs_to_delete = db_plcs - self.yaml_plcs
                 for plc_name in plcs_to_delete:
-                    cur.execute("SELECT * FROM delete_plc_all_bits = %s", (plc_name,))
+                    print(f"Removing PLC: {plc_name}")
+                    cur.execute("SELECT * FROM delete_plc_all_bits(%s)", (plc_name,))
+                    cur.execute("DELETE FROM plc WHERE plc_name = %s", (plc_name,))
 
                 # Delete resources that are in DB but not in YAML (optional)
                 resources_to_delete = db_resources - self.yaml_resources
                 for resource_name in resources_to_delete:
-                    cur.execute("SELECT * FROM delete_plc_resource_bits(%s, %s)", (plc_name, resource_name))
+                    cur.execute("DELETE FROM resource WHERE resource_name = %s", (resource_name,))
 
                 # Insert new PLCs
                 for plc in self.yaml_plcs:
@@ -79,37 +97,16 @@ class PLCResourceSync:
                                 VALUES (%s) ON CONFLICT (resource_name) DO NOTHING
                                 """, (resource,))
 
-                # # Build lookup maps for IDs if needed for other operations
-                # cur.execute("SELECT plc_id, plc_name FROM plc")
-                # plc_lookup = {name: plc_id for plc_id, name in cur.fetchall()}
-                # cur.execute("SELECT resource_id, resource_name FROM resource")
-                # resource_lookup = {name: res_id for res_id, name in cur.fetchall()}
-
-                # # For each PLC-resource pair, we could create placeholder entries in resource_bit
-                # for plc, resource in self.plc_resources:
-                #     cur.execute("""
-                #                 SELECT COUNT(*)
-                #                 FROM resource_bit
-                #                 WHERE plc_id = %s
-                #                   AND resource_id = %s
-                #                 """, (plc_lookup[plc], resource_lookup[resource]))
-                #     count = cur.fetchone()[0]
-                #     if count == 0:
-                #         cur.execute("""
-                #                     INSERT INTO resource_bit (plc_id, resource_id)
-                #                     VALUES (%s, %s) ON CONFLICT DO NOTHING
-                #                     """, (plc_lookup[plc], resource_lookup[resource]))
-    
     async def sync_async(self, conn):
         """
         Synchronize PLCs and resources between YAML and database (asynchronous version).
-        
+
         Args:
             conn: asyncpg database connection
         """
         # Extract data from YAML
         self._extract_yaml_data()
-        
+
         # Get existing PLCs and resources from database
         db_plcs = set()
         records = await conn.fetch("SELECT plc_name FROM plc")
@@ -121,17 +118,33 @@ class PLCResourceSync:
         for record in records:
             db_resources.add(record['resource_name'])
 
+        # Get existing PLC-resource pairs to identify removed combinations
+        db_plc_resources = set()
+        records = await conn.fetch("""
+            SELECT p.plc_name, r.resource_name 
+            FROM plc p
+            JOIN resource_bit rb ON p.plc_id = rb.plc_id
+            JOIN resource r ON rb.resource_id = r.resource_id
+            GROUP BY p.plc_name, r.resource_name
+        """)
+        for record in records:
+            db_plc_resources.add((record['plc_name'], record['resource_name']))
+
+        # Find removed PLC-resource combinations
+        removed_plc_resources = db_plc_resources - self.plc_resources
+        for plc_name, resource_name in removed_plc_resources:
+            print(f"Removing PLC-resource combination: {plc_name}-{resource_name}")
+            await conn.fetch("SELECT * FROM delete_plc_resource_bits($1, $2)", plc_name, resource_name)
+
         # Delete PLCs that are in DB but not in YAML
         for plc_name in db_plcs - self.yaml_plcs:
-            result = await conn.fetchrow("SELECT * FROM delete_plc_all_bits($1)", plc_name)
-            if result:
-                print(f"Deleted PLC {plc_name}: {result['message']}")
+            print(f"Removing PLC: {plc_name}")
+            await conn.fetch("SELECT * FROM delete_plc_all_bits($1)", plc_name)
+            await conn.execute("DELETE FROM plc WHERE plc_name = $1", plc_name)
 
-        # Delete specific PLC-resource combinations (if that's what you want)
+        # Delete resources that are in DB but not in YAML (optional)
         for resource_name in db_resources - self.yaml_resources:
-            result = await conn.fetchrow("SELECT * FROM delete_plc_resource_bits($1, $2)", plc_name, resource_name)
-            if result:
-                print(f"Deleted {plc_name}-{resource_name}: {result['message']}")
+            await conn.execute("DELETE FROM resource WHERE resource_name = $1", resource_name)
 
         # Insert new PLCs
         for plc in self.yaml_plcs:
@@ -157,21 +170,6 @@ class PLCResourceSync:
         records = await conn.fetch("SELECT resource_id, resource_name FROM resource")
         for record in records:
             resource_lookup[record['resource_name']] = record['resource_id']
-
-        # # For each PLC-resource pair, we could create placeholder entries in resource_bit
-        # for plc, resource in self.plc_resources:
-        #     count = await conn.fetchval("""
-        #                     SELECT COUNT(*)
-        #                     FROM resource_bit
-        #                     WHERE plc_id = $1
-        #                       AND resource_id = $2
-        #                     """, plc_lookup[plc], resource_lookup[resource])
-        #
-        #     if count == 0:
-        #         await conn.execute("""
-        #                            INSERT INTO resource_bit (plc_id, resource_id)
-        #                            VALUES ($1, $2) ON CONFLICT DO NOTHING
-        #                            """, plc_lookup[plc], resource_lookup[resource])
 
 
 if __name__ == "__main__":
