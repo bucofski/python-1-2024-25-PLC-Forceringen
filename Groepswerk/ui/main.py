@@ -162,13 +162,18 @@ def server(inputs, outputs, session):
             config, config_loader = update_configuration(yaml_content, test_config, config_loader, save_message)
             host_options = config_loader.get_host_options()
 
-            # Step 3: Update UI components
             update_ui_components(config_loader, inputs, selected_resource, resource_buttons_trigger)
 
-            # Step 4: Synchronize with database
+            create_resource_click_handler(
+                config, inputs, selected_resource, selected_plc, selected_view, plc_bits_data, config_loader
+            )
+            
+            create_plc_click_handler(
+                config, inputs, selected_plc, selected_resource, selected_view, plc_bits_data, config_loader
+            )
+
             await sync_with_database(config_loader, save_message, session)
 
-            # Set success status
             save_message.set("Configuration saved successfully!")
 
         except Exception as e:
@@ -183,7 +188,6 @@ def server(inputs, outputs, session):
     @render.text
     def save_status():
         message = save_message()
-        # Clear the message after 3 seconds
         if message:
             ui.notification_show(message, duration=3)
             save_message.set("")
