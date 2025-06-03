@@ -259,8 +259,7 @@ def create_resource_click_handler(config, inputs, selected_resource, selected_pl
     
     @reactive.effect
     async def handle_resource_clicks():
-        # sftp_hosts = config.get('sftp_hosts', [])
-        sftp_hosts = config_loader.config.get('sftp_hosts', [])
+        sftp_hosts = config.get('sftp_hosts', [])
         selected_host_val = inputs.host_select()
 
         # Filter the right host(s)
@@ -336,9 +335,8 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
     
     @reactive.effect
     async def handle_plc_clicks():
-        sftp_hosts = config_loader.config.get('sftp_hosts', [])
 
-        #sftp_hosts = config.get('sftp_hosts', [])
+        sftp_hosts = config.get('sftp_hosts', [])
 
         if inputs.host_select() != "all":
             return  # only active when "all" is selected

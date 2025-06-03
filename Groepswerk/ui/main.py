@@ -193,10 +193,9 @@ def server(inputs, outputs, session):
             save_message.set("Configuration saved successfully!")
             
             # Instead of reloading, just refresh the current view data
-            current_view = selected_view()
-            if current_view in ["resource", "ALL"]:
+
                 # Trigger data refresh for the current view
-                resource_buttons_trigger.set(resource_buttons_trigger() + 1)
+            resource_buttons_trigger.set(resource_buttons_trigger() + 1)
 
         except Exception as e:
             save_message.set(f"Error saving file: {str(e)}")

@@ -198,7 +198,7 @@ def create_resource_table(data, selected_resource, selected_plc):
 
     # Create column headers - added "Details" column
     headers = [
-        "Bit Number", "KKS",
+        "Sign. Name", "KKS",
         "Comment", "Second Comment", "Value",
         "Forced At", "forced by", "Reason", "Details"
     ]
@@ -304,7 +304,7 @@ def create_plc_table(data, selected_plc):
 
     # Create column headers - added "Details" column
     headers = [
-        "resource", "Bit Number", "KKS",
+        "resource", "Sign. Name", "KKS",
         "Comment", "Second Comment", "Value",
         "Forced At", "forced by", "Details"
     ]
@@ -434,7 +434,7 @@ def create_detail_view(bit_data, history_data):
             ui.tags.h3("Bit Information"),
             ui.tags.div(
                 ui.tags.div(
-                    ui.tags.strong("Bit Number: "), bit_data.get('bit_number', 'N/A'),
+                    ui.tags.strong("Signal name: "), bit_data.get('bit_number', 'N/A'),
                     style="margin-bottom: 10px;"
                 ),
                 ui.tags.div(
@@ -607,11 +607,11 @@ def create_config_view(yaml_path):
                 "yaml_editor",
                 label=None,
                 value=yaml_content,
-                height="600px",
-                width="800px",
+                height="800px",
+                width="100%",  # Gewijzigd van 200% naar 100% voor betere responsiviteit
                 resize="both"
             ),
-            style="display: flex; flex-direction: column; align-items: center; margin: 0 auto;"
+            style="display: flex; flex-direction: column; align-items: center; margin: 0 auto; width: 100%;"  # Breder gemaakt
         ),
         ui.tags.div(
             ui.input_action_button(
@@ -626,7 +626,7 @@ def create_config_view(yaml_path):
             ),
             style="display: flex; flex-direction: column; align-items: center; margin-top: 16px;"
         ),
-        style="width: 800px; margin: 0 auto; text-align: center;"
+        style="width: 600px; margin: 0 auto; text-align: center;"  # Gewijzigd van 800px naar 1200px
     )
 
 
