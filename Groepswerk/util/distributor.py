@@ -76,7 +76,7 @@ def run_main_with_host(config_loader, selected_host_name, is_gui_context=False):
 
     # UPDATED: get resources list and construct file paths dynamically
     resources = host_cfg.get('resources', [])
-    remote_files = [f"{host_cfg['hostname']}/{resource}/for2.dat" for resource in resources]
+    remote_files = [f"{host_cfg['hostname']}/{resource}/for.dat" for resource in resources]
 
     base_local_dir = config_loader.get('local_base_dir', '')
     host_name = host_cfg.get('hostname')
