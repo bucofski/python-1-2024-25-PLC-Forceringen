@@ -58,12 +58,12 @@ class PLCResourceSync:
                 # Delete PLCs that are in DB but not in YAML
                 plcs_to_delete = db_plcs - self.yaml_plcs
                 for plc_name in plcs_to_delete:
-                    cur.execute("DELETE FROM plc WHERE plc_name = %s", (plc_name,))
+                    cur.execute("SELECT * FROM delete_plc_all_bits = %s", (plc_name,))
 
                 # Delete resources that are in DB but not in YAML (optional)
                 resources_to_delete = db_resources - self.yaml_resources
                 for resource_name in resources_to_delete:
-                    cur.execute("DELETE FROM resource WHERE resource_name = %s", (resource_name,))
+                    cur.execute("SELECT * FROM delete_plc_resource_bits(%s, %s)", (plc_name, resource_name))
 
                 # Insert new PLCs
                 for plc in self.yaml_plcs:
@@ -123,11 +123,15 @@ class PLCResourceSync:
 
         # Delete PLCs that are in DB but not in YAML
         for plc_name in db_plcs - self.yaml_plcs:
-            await conn.execute("DELETE FROM plc WHERE plc_name = $1", plc_name)
+            result = await conn.fetchrow("SELECT * FROM delete_plc_all_bits($1)", plc_name)
+            if result:
+                print(f"Deleted PLC {plc_name}: {result['message']}")
 
-        # Delete resources that are in DB but not in YAML (optional)
+        # Delete specific PLC-resource combinations (if that's what you want)
         for resource_name in db_resources - self.yaml_resources:
-            await conn.execute("DELETE FROM resource WHERE resource_name = $1", resource_name)
+            result = await conn.fetchrow("SELECT * FROM delete_plc_resource_bits($1, $2)", plc_name, resource_name)
+            if result:
+                print(f"Deleted {plc_name}-{resource_name}: {result['message']}")
 
         # Insert new PLCs
         for plc in self.yaml_plcs:
