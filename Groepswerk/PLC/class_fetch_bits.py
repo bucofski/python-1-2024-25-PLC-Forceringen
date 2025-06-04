@@ -1,11 +1,40 @@
+"""
+PLC Bit Repository Module
+
+Information:
+    This module provides asynchronous functionality for retrieving PLC bit data
+    from a PostgreSQL database. It handles database connections and query execution
+    using the asyncpg library.
+
+Date: 03/06/2025
+Author: TOVY
+"""
+
 import asyncpg
 
 class PLCBitRepositoryAsync:
+    """
+    Information:
+        A class for asynchronously retrieving PLC bit data from a PostgreSQL database.
+        Manages database connections and provides methods to fetch data with filtering options.
+
+    Parameters:
+        Input: ConfigLoader instance containing database connection information
+
+    Date: 03/06/2025
+    Author: TOVY
+    """
     def __init__(self, config_loader):
         """
-        Initialize with a ConfigLoader instance.
-        Args:
-            config_loader: Instance of ConfigLoader containing DB info.
+        Information:
+            Initialize the repository with a ConfigLoader instance.
+            The config_loader must contain database connection parameters.
+
+        Parameters:
+            Input: config_loader - Instance of ConfigLoader containing DB info
+
+        Date: 03/06/2025
+        Author: TOVY
         """
         self.config_loader = config_loader
 

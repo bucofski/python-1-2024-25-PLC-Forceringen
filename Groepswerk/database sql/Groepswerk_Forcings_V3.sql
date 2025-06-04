@@ -19,6 +19,7 @@ CREATE TABLE resource_bit (
     resource_id INTEGER NOT NULL REFERENCES resource(resource_id) ON DELETE CASCADE,
     bit_number VARCHAR(20) NOT NULL,
     kks VARCHAR(200),
+	var_type varchar(6),
     comment TEXT,
     second_comment TEXT,
     value VARCHAR(50),
