@@ -147,7 +147,6 @@ async def sync_with_database(config_loader, save_message, session):
     Author: TOVY
     """
     try:
-        from Groepswerk.PLC.class_fetch_bits import PLCBitRepositoryAsync
 
         # Update status
         save_message.set("Configuration saved. Synchronizing database...")
