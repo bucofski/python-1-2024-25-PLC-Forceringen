@@ -190,12 +190,11 @@ def server(inputs, outputs, session):
 
             await sync_with_database(config_loader, save_message, session)
 
-            save_message.set("Configuration saved successfully!")
-            
-            # Instead of reloading, just refresh the current view data
-
-                # Trigger data refresh for the current view
             resource_buttons_trigger.set(resource_buttons_trigger() + 1)
+
+            save_message.set("Configuration saved successfully!")
+
+
 
         except Exception as e:
             save_message.set(f"Error saving file: {str(e)}")
