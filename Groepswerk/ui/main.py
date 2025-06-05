@@ -40,7 +40,7 @@ except FileNotFoundError:
         "Please make sure 'plc.yaml' exists in the group work folder next to this script."
     )
 
-# Create the UI
+# Create the UI with initial host options
 app_ui = create_app_ui(host_options)
 
 
@@ -69,6 +69,23 @@ def server(inputs, outputs, session):
     save_message = reactive.Value("")
     selected_bit_detail = reactive.Value(None)  # Store selected bit for detail view
     bit_history_data = reactive.Value([])  # Store history data for detail view
+    
+    # Reactive waarde voor host options
+    current_host_options = reactive.Value(config_loader.get_host_options())
+
+    # Initialize host select with current data on startup
+    @reactive.effect
+    def initialize_host_select():
+        """Initialize host select with fresh data from config file"""
+        fresh_options = config_loader.get_host_options()
+        current_host_options.set(fresh_options)
+        
+        option_keys = list(fresh_options.keys()) if fresh_options else []
+        ui.update_select(
+            "host_select",
+            choices=fresh_options,
+            selected=option_keys[0] if option_keys else None
+        )
 
     # View-switching logic
     @reactive.effect
@@ -173,7 +190,7 @@ def server(inputs, outputs, session):
     @reactive.event(inputs.save_config)
     async def save_yaml_config():
         """Handle YAML configuration saving and database synchronization."""
-        global config, config_loader, host_options
+        global config, config_loader
 
         try:
             # Step 1: Get and validate YAML content
@@ -182,9 +199,20 @@ def server(inputs, outputs, session):
             if not test_config:
                 return
 
-            # Step 2: Save configuration and update global state
+            # Update configuration
             config, config_loader = update_configuration(yaml_content, test_config, config_loader, save_message)
-            host_options = config_loader.get_host_options()
+            
+            # Update reactive host options
+            new_host_options = config_loader.get_host_options()
+            current_host_options.set(new_host_options)
+            
+            # Update the select input with new options
+            option_keys = list(new_host_options.keys()) if new_host_options else []
+            ui.update_select(
+                "host_select", 
+                choices=new_host_options,
+                selected=option_keys[0] if option_keys else None
+            )
 
             update_ui_components(config_loader, inputs, selected_resource, resource_buttons_trigger)
 
@@ -193,8 +221,6 @@ def server(inputs, outputs, session):
             resource_buttons_trigger.set(resource_buttons_trigger() + 1)
 
             save_message.set("Configuration saved successfully!")
-
-
 
         except Exception as e:
             save_message.set(f"Error saving file: {str(e)}")
