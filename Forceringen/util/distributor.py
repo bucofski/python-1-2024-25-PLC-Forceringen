@@ -75,11 +75,6 @@ def main():
     """
 
     start = datetime.now()
-    # # Load YAML and select SFTP host(s)
-    # with open("plc.yaml", "r") as f:
-    #     config = yaml.safe_load(f)
-    #
-    # # Load configuration using ConfigLoader instead of direct YAML loading
     config_loader = ConfigLoader("../config/plc.yaml")
 
     host_selection = select_sftp_host(config_loader)

@@ -1,10 +1,11 @@
 import yaml
 import sys
 import io
-import psycopg2
+import sqlalchemy.exc  # Changed from psycopg2
 from Forceringen.util.config_manager import ConfigLoader
 from Forceringen.Database.insert_data_db_yaml import PLCResourceSync
 from Forceringen.Database.fetch_bits_db import PLCBitRepositoryAsync
+from Forceringen.util.unified_db_connection import DatabaseConnection  # Added import
 from shiny import reactive, ui
 from Forceringen.util import distributor
 
@@ -147,16 +148,15 @@ async def sync_with_database(config_loader, save_message, session):
     Author: TOVY
     """
     try:
-
         # Update status
         save_message.set("Configuration saved. Synchronizing database...")
 
         # Force UI update
         await session.send_custom_message("force_update", {})
 
-        # Get database connection
-        repo = PLCBitRepositoryAsync(config_loader)
-        conn = await repo._get_connection()
+        # Get database connection using unified connection
+        db_connection = DatabaseConnection(config_loader)
+        conn = await db_connection.get_connection(is_async=True)
 
         try:
             # Sync database
@@ -166,11 +166,11 @@ async def sync_with_database(config_loader, save_message, session):
             # Update status
             save_message.set("Configuration saved and database synchronized successfully!")
         finally:
-            await conn.close()
+            await conn.disconnect()
 
     except ImportError as import_err:
         save_message.set(f"Configuration saved but couldn't import database module: {str(import_err)}")
-    except psycopg2.OperationalError as db_conn_err:
+    except sqlalchemy.exc.OperationalError as db_conn_err:  # Changed from psycopg2
         save_message.set(f"Configuration saved but database connection failed: {str(db_conn_err)}")
     except Exception as db_error:
         import traceback
@@ -196,36 +196,36 @@ async def fetch_bit_history(bit_data, config_loader, selected_plc, bit_history_d
     """
 
     try:
-        repo = PLCBitRepositoryAsync(config_loader)
-        conn = await repo._get_connection()
+        # Use unified database connection
+        db_connection = DatabaseConnection(config_loader)
+        conn = await db_connection.get_connection(is_async=True)
 
         try:
             plc_name = bit_data.get('PLC') or selected_plc()
             resource_name = bit_data.get('resource')
             bit_number = bit_data.get('bit_number')
 
-            # Query the last_5_force_reasons_per_bit view
+            # Query with SQL Server syntax (named parameters)
             history_query = """
                 SELECT *
                 FROM last_5_force_reasons_per_bit
-                WHERE PLC = $1
-                  AND resource = $2
-                  AND bit_number = $3
+                WHERE PLC = :plc_name
+                  AND resource = :resource_name
+                  AND bit_number = :bit_number
                 ORDER BY forced_at DESC;
             """
 
-            history_results = await conn.fetch(history_query, plc_name, resource_name, bit_number)
+            history_results = await conn.fetch_all(history_query, {
+                "plc_name": plc_name,
+                "resource_name": resource_name,
+                "bit_number": bit_number
+            })
 
-            # Convert to list of dicts
-            history_data = []
-            for row in history_results:
-                history_data.append(dict(row))
-
-            bit_history_data.set(history_data)
-            print(f"Fetched {len(history_data)} history records for bit {bit_number}")
+            bit_history_data.set(history_results)
+            print(f"Fetched {len(history_results)} history records for bit {bit_number}")
 
         finally:
-            await conn.close()
+            await conn.disconnect()
 
     except Exception as e:
         print(f"Error fetching bit history: {str(e)}")
@@ -474,15 +474,21 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
         bit_number = record.get('bit_number')
         print(f"Saving reason for bit {bit_number} on PLC {plc_name} resource {resource_name}...")
         try:
-            # Create DB connection
-            repo = PLCBitRepositoryAsync(config_loader)
-            conn = await repo._get_connection()
+            # Create DB connection using unified connection
+            db_connection = DatabaseConnection(config_loader)
+            conn = await db_connection.get_connection(is_async=True)
 
             try:
-                # Update the reason in the database
-                result = await conn.fetchrow(
-                    "SELECT * FROM insert_force_reason($1, $2, $3, $4, $5)",
-                    plc_name, resource_name, bit_number, reason_text, forced_text
+                # Update the reason in the database with SQL Server syntax
+                result = await conn.fetch_one(
+                    "SELECT * FROM insert_force_reason(:plc_name, :resource_name, :bit_number, :reason_text, :forced_text)",
+                    {
+                        "plc_name": plc_name,
+                        "resource_name": resource_name,
+                        "bit_number": bit_number,
+                        "reason_text": reason_text,
+                        "forced_text": forced_text
+                    }
                 )
                 # Check result and update status
                 if result:
@@ -499,7 +505,7 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
                 else:
                     save_message.set(f"Failed to save reason for bit {bit_number}")
             finally:
-                await conn.close()
+                await conn.disconnect()
 
         except Exception as e:
             save_message.set(f"Error: {str(e)}")
@@ -595,15 +601,21 @@ def create_save_reason_detail_handler(inputs, selected_bit_detail, selected_plc,
         print(f"Saving reason in detail view for bit {bit_number} on PLC {plc_name} resource {resource_name}...")
         
         try:
-            # Create DB connection
-            repo = PLCBitRepositoryAsync(config_loader)
-            conn = await repo._get_connection()
+            # Create DB connection using unified connection
+            db_connection = DatabaseConnection(config_loader)
+            conn = await db_connection.get_connection(is_async=True)
 
             try:
-                # Update the reason in the database
-                result = await conn.fetchrow(
-                    "SELECT * FROM insert_force_reason($1, $2, $3, $4, $5)",
-                    plc_name, resource_name, bit_number, reason_text, forced_text
+                # Update the reason in the database with SQL Server syntax
+                result = await conn.fetch_one(
+                    "SELECT * FROM insert_force_reason(:plc_name, :resource_name, :bit_number, :reason_text, :forced_text)",
+                    {
+                        "plc_name": plc_name,
+                        "resource_name": resource_name,
+                        "bit_number": bit_number,
+                        "reason_text": reason_text,
+                        "forced_text": forced_text
+                    }
                 )
                 
                 # Check result and update status
@@ -623,7 +635,7 @@ def create_save_reason_detail_handler(inputs, selected_bit_detail, selected_plc,
                 else:
                     save_message.set(f"Failed to save reason for bit {bit_number}")
             finally:
-                await conn.close()
+                await conn.disconnect()
 
         except Exception as e:
             save_message.set(f"Error: {str(e)}")
