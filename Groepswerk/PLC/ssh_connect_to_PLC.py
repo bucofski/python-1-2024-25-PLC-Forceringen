@@ -10,7 +10,7 @@ Date: 03/06/2025
 Author: TOVY
 """
 
-from Groepswerk.util.class_config_loader import ConfigLoader
+from Groepswerk.util.config_manager import ConfigLoader
 import paramiko
 import os
 

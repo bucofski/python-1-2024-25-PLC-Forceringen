@@ -2,9 +2,9 @@ import yaml
 import sys
 import io
 import psycopg2
-from Groepswerk.util.class_config_loader import ConfigLoader
+from Groepswerk.util.config_manager import ConfigLoader
 from Groepswerk.Database.insert_data_db_yaml import PLCResourceSync
-from Groepswerk.PLC.class_fetch_bits import PLCBitRepositoryAsync
+from Groepswerk.Database.fetch_bits_db import PLCBitRepositoryAsync
 from shiny import reactive, ui
 from Groepswerk.util import distributor
 

@@ -10,11 +10,11 @@ Author: [Insert your name here]
 """
 
 import json
-from Groepswerk.PLC.class_bit_conversion import BitConversion
-from Groepswerk.PLC.class_fetch_bits import PLCBitRepositoryAsync
-from Groepswerk.util.class_config_loader import ConfigLoader
-from Groepswerk.Database.class_making_querry import DataProcessor, FileReader
-from Groepswerk.Database.class_database import DatabaseSearcher
+from Groepswerk.PLC.Value_convertion import BitConversion
+from Groepswerk.Database.fetch_bits_db import PLCBitRepositoryAsync
+from Groepswerk.util.config_manager import ConfigLoader
+from Groepswerk.PLC.convert_dat_file import DataProcessor, FileReader
+from Groepswerk.PLC.Search_Access import DatabaseSearcher
 import asyncio
 import threading
 

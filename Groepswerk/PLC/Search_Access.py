@@ -12,8 +12,8 @@ Author: TOVY
 
 from datetime import datetime
 import pyodbc
-from Groepswerk.Database.class_making_querry import FileReader, DataProcessor
-from Groepswerk.util.class_config_loader import ConfigLoader
+from Groepswerk.PLC.convert_dat_file import FileReader, DataProcessor
+from Groepswerk.util.config_manager import ConfigLoader
 
 
 class DatabaseSearcher:

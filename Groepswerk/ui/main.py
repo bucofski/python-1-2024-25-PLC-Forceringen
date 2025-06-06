@@ -11,7 +11,7 @@ Date: 03/06/2025
 Author: TOVY
 """
 
-from Groepswerk.util.class_config_loader import ConfigLoader
+from Groepswerk.util.config_manager import ConfigLoader
 from shiny import App, ui, render, reactive
 from Groepswerk.ui.ui_components import (
     create_app_ui, create_resource_buttons_ui,
