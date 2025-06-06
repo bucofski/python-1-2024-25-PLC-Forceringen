@@ -10,11 +10,12 @@ Author: [Insert your name here]
 """
 
 import json
-from Groepswerk.PLC.Value_convertion import BitConversion
-from Groepswerk.Database.fetch_bits_db import PLCBitRepositoryAsync
-from Groepswerk.util.config_manager import ConfigLoader
-from Groepswerk.PLC.convert_dat_file import DataProcessor, FileReader
-from Groepswerk.PLC.Search_Access import DatabaseSearcher
+from Forceringen.PLC.Value_convertion import BitConversion
+from Forceringen.Database.fetch_bits_db import PLCBitRepositoryAsync
+from Forceringen.util.unified_db_connection import DatabaseConnection
+from Forceringen.util.config_manager import ConfigLoader
+from Forceringen.PLC.convert_dat_file import DataProcessor, FileReader
+from Forceringen.PLC.Search_Access import DatabaseSearcher
 import asyncio
 import threading
 
@@ -50,6 +51,7 @@ class BitConversionDBWriter(BitConversion):
         super().__init__(data_list)
         self.config_loader = config_loader
         self.repo = PLCBitRepositoryAsync(config_loader)
+        self.db_connection = DatabaseConnection(config_loader)
 
     async def write_to_database(self):
         """
@@ -66,6 +68,7 @@ class BitConversionDBWriter(BitConversion):
         if not processed_list:
             print("No data to process")
             return
+        
         # Get PLC and resource from first record (assuming all records have same PLC/resource)
         plc_name = processed_list[0].get("PLC")
         resource_name = processed_list[0].get("resource")
@@ -81,16 +84,19 @@ class BitConversionDBWriter(BitConversion):
         else:
             bits_json = json.dumps(processed_list)
 
-        # Convert processed list to JSON format for the procedure
-
-        conn = await self.repo._get_connection()
+        # Get async connection using the unified DatabaseConnection
+        conn = await self.db_connection.get_connection(is_async=True)
         try:
             print(f"Processing {len(processed_list)} bits for PLC: {plc_name}, Resource: {resource_name}")
 
-            # Call the batch procedure
-            result = await conn.fetchrow(
-                "SELECT * FROM upsert_plc_bits($1, $2, $3::jsonb)",
-                plc_name, resource_name, bits_json
+            # Call the batch procedure with SQL Server syntax
+            result = await conn.fetch_one(
+                "SELECT * FROM upsert_plc_bits(:plc_name, :resource_name, :bits_json)",
+                {
+                    "plc_name": plc_name, 
+                    "resource_name": resource_name, 
+                    "bits_json": bits_json
+                }
             )
 
             # Check result
@@ -102,7 +108,7 @@ class BitConversionDBWriter(BitConversion):
         except Exception as e:
             print(f"Database error: {e}")
         finally:
-            await conn.close()
+            await conn.disconnect()
 
     def write_to_database_threaded(self):
         """

@@ -12,13 +12,13 @@ Author: TOVY
 
 import os
 import asyncio
-from Groepswerk.PLC.ssh_connect_to_PLC import SFTPClient
-from Groepswerk.PLC.convert_dat_file import FileReader, DataProcessor
-from Groepswerk.PLC.Search_Access import DatabaseSearcher
-from Groepswerk.PLC.Value_convertion import BitConversion
+from Forceringen.PLC.ssh_connect_to_PLC import SFTPClient
+from Forceringen.PLC.convert_dat_file import FileReader, DataProcessor
+from Forceringen.PLC.Search_Access import DatabaseSearcher
+from Forceringen.PLC.Value_convertion import BitConversion
 from datetime import datetime
-from Groepswerk.util.config_manager import ConfigLoader
-from Groepswerk.Database.writes_bits_to_db import BitConversionDBWriter
+from Forceringen.util.config_manager import ConfigLoader
+from Forceringen.Database.writes_bits_to_db import BitConversionDBWriter
 
 def select_sftp_host(config_loader):
     """

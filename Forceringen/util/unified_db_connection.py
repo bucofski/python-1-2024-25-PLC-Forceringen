@@ -1,6 +1,6 @@
 import inspect
-import psycopg2
-import asyncpg
+from databases import Database
+import pytds
 
 
 class DatabaseConnection:
@@ -8,7 +8,7 @@ class DatabaseConnection:
     Information:
         Unified database connection class that provides both synchronous and asynchronous
         database connections with a consistent interface. Supports context managers,
-        automatic async detection, and connection management.
+        automatic async detection, and connection management for SQL Server.
 
     Parameters:
         Input: Configuration loader object that provides database connection parameters
@@ -49,17 +49,31 @@ class DatabaseConnection:
         """
         db_config = self.config_loader.get_database_info()
         return {
-            "host": db_config.get("host", "localhost"),
-            "port": db_config.get("port", 5432),
+            "server": db_config.get("host", "localhost"),
+            "port": db_config.get("port", 1433),
             "database": db_config.get("database"),
             "user": db_config.get("user"),
             "password": db_config.get("password")
         }
 
+    def _build_connection_string(self, db_config):
+        """
+        Information:
+            Build connection string for SQL Server from configuration parameters.
+            
+        Parameters:
+            Input: db_config - Dictionary with database connection parameters
+            Output: Connection string for SQL Server
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
+        return f"mssql+pytds://{db_config['user']}:{db_config['password']}@{db_config['server']}:{db_config['port']}/{db_config['database']}"
+
     def connect(self):
         """
         Information:
-            Establish a synchronous connection to the database.
+            Establish a synchronous connection to the SQL Server database.
             Stores the connection and cursor as instance attributes.
             Provides feedback about connection status.
 
@@ -71,9 +85,15 @@ class DatabaseConnection:
         """
         try:
             db_config = self._get_db_config()
-            self.sync_connection = psycopg2.connect(**db_config)
+            self.sync_connection = pytds.connect(
+                server=db_config['server'],
+                port=db_config['port'],
+                database=db_config['database'],
+                user=db_config['user'],
+                password=db_config['password']
+            )
             self.sync_cursor = self.sync_connection.cursor()
-            print(f"Connected to database: {db_config['database']}")
+            print(f"Connected to SQL Server database: {db_config['database']}")
             return True
         except Exception as e:
             print(f"Database connection error: {e}")
@@ -82,7 +102,7 @@ class DatabaseConnection:
     async def connect_async(self):
         """
         Information:
-            Establish an asynchronous connection to the database.
+            Establish an asynchronous connection to the SQL Server database.
             Stores the connection as an instance attribute.
             Provides feedback about connection status.
 
@@ -94,8 +114,10 @@ class DatabaseConnection:
         """
         try:
             db_config = self._get_db_config()
-            self.async_connection = await asyncpg.connect(**db_config)
-            print(f"Connected asynchronously to database: {db_config['database']}")
+            connection_string = self._build_connection_string(db_config)
+            self.async_connection = Database(connection_string)
+            await self.async_connection.connect()
+            print(f"Connected asynchronously to SQL Server database: {db_config['database']}")
             return True
         except Exception as e:
             print(f"Asynchronous database connection error: {e}")
@@ -130,7 +152,7 @@ class DatabaseConnection:
         Author: TOVY
         """
         if self.async_connection:
-            await self.async_connection.close()
+            await self.async_connection.disconnect()
             self.async_connection = None
             print("Asynchronous database connection closed")
 
@@ -143,9 +165,9 @@ class DatabaseConnection:
 
         Parameters:
             Input: is_async - Override automatic detection of async context
-                   True for asyncpg connection, False for psycopg2 connection,
+                   True for databases connection, False for pytds connection,
                    None for automatic detection
-            Output: Database connection object (psycopg2 or asyncpg connection)
+            Output: Database connection object (pytds or databases connection)
 
         Date: 03/06/2025
         Author: TOVY
@@ -160,14 +182,22 @@ class DatabaseConnection:
             db_config = self._get_db_config()
 
             if is_async:
-                # Asynchronous connection with asyncpg
-                connection = await asyncpg.connect(**db_config)
-                print(f"Connected asynchronously to database: {db_config['database']}")
+                # Asynchronous connection with databases
+                connection_string = self._build_connection_string(db_config)
+                connection = Database(connection_string)
+                await connection.connect()
+                print(f"Connected asynchronously to SQL Server database: {db_config['database']}")
                 return connection
             else:
-                # Synchronous connection with psycopg2
-                connection = psycopg2.connect(**db_config)
-                print(f"Connected to database: {db_config['database']}")
+                # Synchronous connection with pytds
+                connection = pytds.connect(
+                    server=db_config['server'],
+                    port=db_config['port'],
+                    database=db_config['database'],
+                    user=db_config['user'],
+                    password=db_config['password']
+                )
+                print(f"Connected to SQL Server database: {db_config['database']}")
                 return connection
 
         except Exception as e:
@@ -202,7 +232,7 @@ class DatabaseConnection:
 # Example 2: Asynchronous connection with async context manager
 # async with DatabaseConnection(config_loader) as db:
 #     # Use db.async_connection here
-#     results = await db.async_connection.fetch("SELECT * FROM table")
+#     results = await db.async_connection.fetch_all("SELECT * FROM table")
 
 # Example 3: Get a standalone connection (doesn't store in the instance)
 # async def example_function():
@@ -210,7 +240,7 @@ class DatabaseConnection:
 #     # Auto-detects that we're in an async context
 #     conn = await db.get_connection()
 #     try:
-#         results = await conn.fetch("SELECT * FROM table")
+#         results = await conn.fetch_all("SELECT * FROM table")
 #         return results
 #     finally:
-#         await conn.close()
+#         await conn.disconnect()
