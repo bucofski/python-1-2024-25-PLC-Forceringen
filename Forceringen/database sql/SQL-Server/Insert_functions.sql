@@ -3,7 +3,7 @@
 -- =============================================
 DROP PROCEDURE IF EXISTS upsert_plc_bits;
 
-CREATE OR ALTER PROCEDURE upsert_plc_bits
+CREATE   PROCEDURE upsert_plc_bits
     @p_plc_name NVARCHAR(100),
     @p_resource_name NVARCHAR(100),
     @p_bits_data NVARCHAR(MAX)  -- JSON string instead of JSONB
@@ -45,6 +45,7 @@ BEGIN
         BEGIN
             INSERT INTO #result VALUES (0, 'Failed to create/find PLC: ' + @p_plc_name, 0);
             SELECT * FROM #result;
+            ROLLBACK TRANSACTION;
             RETURN;
         END
 
@@ -60,6 +61,7 @@ BEGIN
         BEGIN
             INSERT INTO #result VALUES (0, 'Failed to create/find Resource: ' + @p_resource_name, 0);
             SELECT * FROM #result;
+            ROLLBACK TRANSACTION;
             RETURN;
         END
 
@@ -84,6 +86,8 @@ BEGIN
             WHERE plc_id = @v_plc_id
             AND resource_id = @v_resource_id
             AND force_active = 1;
+
+            COMMIT TRANSACTION;  -- Commit the changes before returning
 
             INSERT INTO #result VALUES (1, 'Empty JSON received - all bits set to force_active = FALSE for ' + @p_plc_name + '/' + @p_resource_name, 0);
             SELECT * FROM #result;
@@ -113,7 +117,7 @@ BEGIN
         -- 6. Deactivate bits that are NOT in the incoming array
         UPDATE resource_bit
         SET force_active = 0
-        WHERE plc_id = @v_plc_id
+     WHERE plc_id = @v_plc_id
         AND resource_id = @v_resource_id
         AND force_active = 1
         AND bit_number NOT IN (SELECT bit_number FROM #incoming_bit_numbers);
@@ -210,7 +214,7 @@ GO
 -- function 4.0 add reason - SQL Server version
 -- =============================================
 
-CREATE OR ALTER PROCEDURE insert_force_reason
+CREATE   PROCEDURE insert_force_reason
     @in_plc_name NVARCHAR(100),
     @in_resource_name NVARCHAR(100),
     @in_bit_number NVARCHAR(20),
@@ -291,4 +295,3 @@ BEGIN
     SELECT * FROM #result;
     DROP TABLE #result;
 END;
-GO

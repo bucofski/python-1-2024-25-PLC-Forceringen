@@ -76,15 +76,15 @@ class PLCResourceSync:
             removed_plc_resources = db_plc_resources - self.plc_resources
             for plc_name, resource_name in removed_plc_resources:
                 print(f"Removing PLC-resource combination: {plc_name}-{resource_name}")
-                await conn.fetch_all(
-                    "SELECT * FROM delete_plc_resource_bits(:plc_name, :resource_name)", 
+                await conn.execute(
+                    "EXEC delete_plc_resource_bits :plc_name, :resource_name", 
                     {"plc_name": plc_name, "resource_name": resource_name}
                 )
 
             # Delete PLCs that are in DB but not in YAML
             for plc_name in db_plcs - self.yaml_plcs:
                 print(f"Removing PLC: {plc_name}")
-                await conn.fetch_all("SELECT * FROM delete_plc_all_bits(:plc_name)", {"plc_name": plc_name})
+                await conn.execute("EXEC delete_plc_all_bits :plc_name", {"plc_name": plc_name})
                 await conn.execute("DELETE FROM plc WHERE plc_name = :plc_name", {"plc_name": plc_name})
 
             # Delete resources that are in DB but not in YAML (optional)

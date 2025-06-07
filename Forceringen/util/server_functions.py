@@ -482,8 +482,8 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
 
             try:
                 # Update the reason in the database with SQL Server syntax
-                result = await conn.fetch_one(
-                    "SELECT * FROM insert_force_reason(:plc_name, :resource_name, :bit_number, :reason_text, :forced_text)",
+                result = await conn.execute(
+                    "EXEC insert_force_reason :plc_name, :resource_name, :bit_number, :reason_text, :forced_text",
                     {
                         "plc_name": plc_name,
                         "resource_name": resource_name,
@@ -609,8 +609,8 @@ def create_save_reason_detail_handler(inputs, selected_bit_detail, selected_plc,
 
             try:
                 # Update the reason in the database with SQL Server syntax
-                result = await conn.fetch_one(
-                    "SELECT * FROM insert_force_reason(:plc_name, :resource_name, :bit_number, :reason_text, :forced_text)",
+                result = await conn.execute(
+                    "EXEC insert_force_reason :plc_name, :resource_name, :bit_number, :reason_text, :forced_text",
                     {
                         "plc_name": plc_name,
                         "resource_name": resource_name,
