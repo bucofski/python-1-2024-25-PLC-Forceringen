@@ -91,10 +91,10 @@ BEGIN
 
         -- 4. Extract all bit_numbers from the incoming JSON array
         INSERT INTO #incoming_bit_numbers (bit_number)
-        SELECT [value] AS name_id
+        SELECT name_id
         FROM OPENJSON(@p_bits_data)
         WITH (name_id NVARCHAR(20) '$.name_id')
-        WHERE [value] IS NOT NULL;
+        WHERE name_id IS NOT NULL;
 
         -- 5. Update bit_force_reason for bits that will be deactivated
         UPDATE bit_force_reason
