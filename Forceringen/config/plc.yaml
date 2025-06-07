@@ -30,7 +30,7 @@ sftp_hosts:
 
 
   - hostname: "BTEST"
-    ip_address: "192.168.0.219"
+    ip_address: "192.168.0.169"
     port: "22"
     username: "pi"
     password: "raspberry"
@@ -41,7 +41,7 @@ sftp_hosts:
     db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
 
   - hostname: "TDS"
-    ip_address: "192.168.0.219"
+    ip_address: "192.168.0.169"
     port: "22"
     username: "pi"
     password: "raspberry"
@@ -53,12 +53,24 @@ sftp_hosts:
 
 ### SQL_SERVER info
 # database views
+#database:
+#  host: "localhost"
+#  port: 1433
+#  database: "master"
+#  user: "postgres"
+#  password: "Test123"
+
 database:
-  host: "192.168.0.219"
-  port: 5432
+  host: "localhost"
+  port: 1433
   database: "Forceringen"
-  user: "postgres"
-  password: "Test123"
+  trusted_connection: true
+  driver: "ODBC Driver 17 for SQL Server"
+  # Add these for Driver 18 if you get SSL/encryption errors:
+  encrypt: "no"  # or "optional" for local development
+  trust_server_certificate: "yes"
+
+
 
 
 

@@ -18,6 +18,7 @@ from Forceringen.PLC.convert_dat_file import DataProcessor, FileReader
 from Forceringen.PLC.Search_Access import DatabaseSearcher
 import asyncio
 import threading
+from sqlalchemy import text
 
 
 class BitConversionDBWriter(BitConversion):
@@ -83,27 +84,24 @@ class BitConversionDBWriter(BitConversion):
             bits_json = json.dumps(processed_list)
         else:
             bits_json = json.dumps(processed_list)
-
+        print(f"Result: {bits_json}")
+        
         # Get async connection using the unified DatabaseConnection
         conn = await self.db_connection.get_connection(is_async=True)
         try:
             print(f"Processing {len(processed_list)} bits for PLC: {plc_name}, Resource: {resource_name}")
 
-            # Call the batch procedure with SQL Server syntax
-            result = await conn.fetch_one(
-                "SELECT * FROM upsert_plc_bits(:plc_name, :resource_name, :bits_json)",
+            # Use the unified execute method instead of sync_connection.execute
+            result = await conn.execute(
+                "EXEC upsert_plc_bits :plc_name, :resource_name, :bits_data",
                 {
-                    "plc_name": plc_name, 
-                    "resource_name": resource_name, 
-                    "bits_json": bits_json
+                    "plc_name": plc_name,
+                    "resource_name": resource_name,
+                    "bits_data": bits_json
                 }
             )
 
-            # Check result
-            if result['success']:
-                print(f"✅ {result['message']}")
-            else:
-                print(f"❌ {result['message']}")
+            print(f"✅ Procedure executed successfully. Rows affected: {result}")
 
         except Exception as e:
             print(f"Database error: {e}")

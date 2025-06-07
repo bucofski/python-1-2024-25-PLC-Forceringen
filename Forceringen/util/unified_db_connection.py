@@ -53,9 +53,11 @@ class DatabaseConnection:
         """
         db_config = self.config_loader.get_database_info()
         return {
-            "server": db_config.get("host", "localhost"),
+            "host": db_config.get("host", "localhost"),
             "port": db_config.get("port", 1433),
             "database": db_config.get("database"),
+            "trusted_connection": db_config.get("trusted_connection"),
+            "integrated_security": db_config.get("integrated_security"),
             "user": db_config.get("user"),
             "password": db_config.get("password"),
             "driver": db_config.get("driver", "ODBC Driver 17 for SQL Server")
@@ -73,13 +75,18 @@ class DatabaseConnection:
         Date: 03/06/2025
         Author: TOVY
         """
-        return f"mssql+pyodbc://{db_config['user']}:{db_config['password']}@{db_config['server']}:{db_config['port']}/{db_config['database']}?driver={db_config['driver'].replace(' ', '+')}"
+        if db_config.get('trusted_connection') or db_config.get('integrated_security'):
+            # Windows Authentication
+            return f"mssql+pyodbc://{db_config['host']}:{db_config['port']}/{db_config['database']}?driver={db_config['driver'].replace(' ', '+')}&trusted_connection=yes"
+        else:
+            # SQL Server Authentication
+            return f"mssql+pyodbc://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['database']}?driver={db_config['driver'].replace(' ', '+')}"
 
     def _build_async_connection_string(self, db_config):
         """
         Information:
             Build asynchronous connection string for SQL Server using aioodbc.
-            
+
         Parameters:
             Input: db_config - Dictionary with database connection parameters
             Output: Connection string for aioodbc
@@ -87,7 +94,12 @@ class DatabaseConnection:
         Date: 03/06/2025
         Author: TOVY
         """
-        return f"DRIVER={{{db_config['driver']}}};SERVER={db_config['server']},{db_config['port']};DATABASE={db_config['database']};UID={db_config['user']};PWD={db_config['password']}"
+        if db_config.get('trusted_connection') or db_config.get('integrated_security'):
+            # Windows Authentication
+            return f"DRIVER={{{db_config['driver']}}};SERVER={db_config['host']},{db_config['port']};DATABASE={db_config['database']};Trusted_Connection=yes"
+        else:
+            # SQL Server Authentication
+            return f"DRIVER={{{db_config['driver']}}};SERVER={db_config['host']},{db_config['port']};DATABASE={db_config['database']};UID={db_config['user']};PWD={db_config['password']}"
 
     def connect(self):
         """
