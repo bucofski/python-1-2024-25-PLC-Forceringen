@@ -1,6 +1,7 @@
 -- =============================================
 -- function 4.0 change loggings - SQL Server version
 -- =============================================
+DROP PROCEDURE IF EXISTS upsert_plc_bits;
 
 CREATE OR ALTER PROCEDURE upsert_plc_bits
     @p_plc_name NVARCHAR(100),

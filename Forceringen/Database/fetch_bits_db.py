@@ -10,6 +10,7 @@ Date: 03/06/2025
 Author: TOVY
 """
 
+import asyncio
 from Forceringen.util.unified_db_connection import DatabaseConnection
 
 class PLCBitRepositoryAsync:
@@ -60,6 +61,7 @@ class PLCBitRepositoryAsync:
                           AND resource = :resource_name
                     """
                     results = await conn.fetch_all(sql, {"plc_name": plc_name, "resource_name": resource_name})
+
                 else:
                     sql = """
                         SELECT *
@@ -69,7 +71,9 @@ class PLCBitRepositoryAsync:
                     results = await conn.fetch_all(sql, {"plc_name": plc_name})
                 
                 # Convert results to list of dictionaries
-                return [dict(record) for record in results]
+                print(f"results are :", results)
+                return [record for record in results]
+
             finally:
                 await conn.disconnect()
         except Exception as e:
@@ -77,3 +81,91 @@ class PLCBitRepositoryAsync:
             error_msg = f"Database error: {str(e)}\n{traceback.format_exc()}"
             print(error_msg)
             return [("ERROR", error_msg)]
+
+    async def fetch_bit_history(self, bit_data, selected_plc=None):
+        """
+        Information:
+            Fetches the last 5 force history records for a selected bit from the database.
+            Queries the last_5_force_reasons_per_bit view and returns the results.
+
+        Parameters:
+            Input: bit_data - Dictionary containing information about the selected bit
+                  selected_plc - Optional PLC name override
+            Output: List of history records from the database
+
+        Date: 03/06/2025
+        Author: TOVY
+        """
+        try:
+            # Use unified database connection
+            conn = await self.db_connection.get_connection(is_async=True)
+
+            try:
+                plc_name = bit_data.get('PLC') or selected_plc
+                resource_name = bit_data.get('resource')
+                bit_number = bit_data.get('bit_number')
+
+                # Query with SQL Server syntax (named parameters)
+                history_query = """
+                    SELECT *
+                    FROM last_5_force_reasons_per_bit
+                    WHERE PLC = :plc_name
+                      AND resource = :resource_name
+                      AND bit_number = :bit_number
+                    ORDER BY forced_at DESC;
+                """
+
+                history_results = await conn.fetch_all(history_query, {
+                    "plc_name": plc_name,
+                    "resource_name": resource_name,
+                    "bit_number": bit_number
+                })
+
+                print(f"Fetched {len(history_results)} history records for bit {bit_number}")
+                return history_results
+
+            finally:
+                await conn.disconnect()
+
+        except Exception as e:
+            print(f"Error fetching bit history: {str(e)}")
+            return []
+
+if __name__ == "__main__":
+    # You need to create an instance of the class and a config_loader
+    # This is just an example - you'll need to import and create your actual config_loader
+    from Forceringen.util.config_manager import ConfigLoader
+
+    try:
+        # Create config loader - adjust path as needed
+        config_loader = ConfigLoader("../config/plc.yaml")
+
+        # Create repository instance
+        repository = PLCBitRepositoryAsync(config_loader)
+
+        # Run the async method
+        asyncio.run(repository.fetch_plc_bits("BTEST"))
+    except Exception as e:
+        print(f"Error running test: {e}")
+
+    async def quick_test():
+        try:
+            config_loader = ConfigLoader("../config/plc.yaml")
+            repository = PLCBitRepositoryAsync(config_loader)
+
+            # Create test bit data dictionary
+            bit_data = {
+                'PLC': 'BTEST',
+                'resource': 'NIET',
+                'bit_number': 'G00000'  # Change this to an actual bit number in your database
+            }
+
+            history = await repository.fetch_bit_history(bit_data)
+            print(f"Bit history: {history}")
+
+        except Exception as e:
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
+
+    asyncio.run(quick_test())

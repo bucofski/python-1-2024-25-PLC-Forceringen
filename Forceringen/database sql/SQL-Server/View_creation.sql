@@ -16,7 +16,7 @@ SELECT
     b.var_type,
     b.value,
     b.force_active,
-    fr.forced_at AS forced_at,
+    CONVERT(DATETIME, fr.forced_at) AS forced_at,  -- Convert DATETIMEOFFSET to DATETIME
     fr.forced_by,
     fr.reason
 FROM resource_bit b
@@ -65,8 +65,8 @@ SELECT
     rb.bit_id,
     rb.bit_number,
     rb.kks,
-    bfr.forced_at,
-    bfr.deforced_at,
+    CONVERT(DATETIME, bfr.forced_at) as forced_at,      -- Convert DATETIMEOFFSET to DATETIME
+    CONVERT(DATETIME, bfr.deforced_at) as deforced_at,  -- Convert DATETIMEOFFSET to DATETIME
     bfr.forced_by,
     bfr.reason
 FROM (

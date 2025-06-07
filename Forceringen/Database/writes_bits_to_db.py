@@ -84,7 +84,6 @@ class BitConversionDBWriter(BitConversion):
             bits_json = json.dumps(processed_list)
         else:
             bits_json = json.dumps(processed_list)
-        print(f"Result: {bits_json}")
         
         # Get async connection using the unified DatabaseConnection
         conn = await self.db_connection.get_connection(is_async=True)

@@ -178,58 +178,58 @@ async def sync_with_database(config_loader, save_message, session):
         print(f"Database sync error: {error_details}")
         save_message.set(f"Configuration saved but database sync failed: {str(db_error)}")
 
-async def fetch_bit_history(bit_data, config_loader, selected_plc, bit_history_data):
-    """
-    Information:
-        Fetches the last 5 force history records for a selected bit from the database.
-        Queries the last_5_force_reasons_per_bit view and updates the bit_history_data
-        reactive value with the results.
-
-    Parameters:
-        Input: bit_data - Dictionary containing information about the selected bit
-              config_loader - ConfigLoader instance with database connection information
-              selected_plc - Reactive value for the currently selected PLC
-              bit_history_data - Reactive value to store the history data
-
-    Date: 03/06/2025
-    Author: TOVY
-    """
-
-    try:
-        # Use unified database connection
-        db_connection = DatabaseConnection(config_loader)
-        conn = await db_connection.get_connection(is_async=True)
-
-        try:
-            plc_name = bit_data.get('PLC') or selected_plc()
-            resource_name = bit_data.get('resource')
-            bit_number = bit_data.get('bit_number')
-
-            # Query with SQL Server syntax (named parameters)
-            history_query = """
-                SELECT *
-                FROM last_5_force_reasons_per_bit
-                WHERE PLC = :plc_name
-                  AND resource = :resource_name
-                  AND bit_number = :bit_number
-                ORDER BY forced_at DESC;
-            """
-
-            history_results = await conn.fetch_all(history_query, {
-                "plc_name": plc_name,
-                "resource_name": resource_name,
-                "bit_number": bit_number
-            })
-
-            bit_history_data.set(history_results)
-            print(f"Fetched {len(history_results)} history records for bit {bit_number}")
-
-        finally:
-            await conn.disconnect()
-
-    except Exception as e:
-        print(f"Error fetching bit history: {str(e)}")
-        bit_history_data.set([])
+# async def fetch_bit_history(bit_data, config_loader, selected_plc, bit_history_data):
+#     """
+#     Information:
+#         Fetches the last 5 force history records for a selected bit from the database.
+#         Queries the last_5_force_reasons_per_bit view and updates the bit_history_data
+#         reactive value with the results.
+#
+#     Parameters:
+#         Input: bit_data - Dictionary containing information about the selected bit
+#               config_loader - ConfigLoader instance with database connection information
+#               selected_plc - Reactive value for the currently selected PLC
+#               bit_history_data - Reactive value to store the history data
+#
+#     Date: 03/06/2025
+#     Author: TOVY
+#     """
+#
+#     try:
+#         # Use unified database connection
+#         db_connection = DatabaseConnection(config_loader)
+#         conn = await db_connection.get_connection(is_async=True)
+#
+#         try:
+#             plc_name = bit_data.get('PLC') or selected_plc()
+#             resource_name = bit_data.get('resource')
+#             bit_number = bit_data.get('bit_number')
+#
+#             # Query with SQL Server syntax (named parameters)
+#             history_query = """
+#                 SELECT *
+#                 FROM last_5_force_reasons_per_bit
+#                 WHERE PLC = :plc_name
+#                   AND resource = :resource_name
+#                   AND bit_number = :bit_number
+#                 ORDER BY forced_at DESC;
+#             """
+#
+#             history_results = await conn.fetch_all(history_query, {
+#                 "plc_name": plc_name,
+#                 "resource_name": resource_name,
+#                 "bit_number": bit_number
+#             })
+#
+#             bit_history_data.set(history_results)
+#             print(f"Fetched {len(history_results)} history records for bit {bit_number}")
+#
+#         finally:
+#             await conn.disconnect()
+#
+#     except Exception as e:
+#         print(f"Error fetching bit history: {str(e)}")
+#         bit_history_data.set([])
 
 def create_resource_click_handler(config, inputs, selected_resource, selected_plc, selected_view, plc_bits_data, config_loader):
     """
@@ -420,7 +420,9 @@ def create_detail_click_handler(plc_bits_data, inputs, selected_bit_detail, sele
                     print(f"Detail view for bit: {item.get('bit_number', '')}")
 
                     # Fetch history data for this bit
-                    await fetch_bit_history(item, config_loader, selected_plc, bit_history_data)
+                    repository = PLCBitRepositoryAsync(config_loader)
+                    history_results = await repository.fetch_bit_history(item, selected_plc())
+                    bit_history_data.set(history_results)
 
                 # Update the stored count
                 previous_clicks[detail_btn_id] = current_count
@@ -631,7 +633,10 @@ def create_save_reason_detail_handler(inputs, selected_bit_detail, selected_plc,
                     selected_bit_detail.set(updated_bit_data)
                     
                     # Refresh history data
-                    await fetch_bit_history(updated_bit_data, config_loader, selected_plc, bit_history_data)
+                    repository = PLCBitRepositoryAsync(config_loader)
+                    history_results = await repository.fetch_bit_history(updated_bit_data, selected_plc())
+                    bit_history_data.set(history_results)
+
                 else:
                     save_message.set(f"Failed to save reason for bit {bit_number}")
             finally:
