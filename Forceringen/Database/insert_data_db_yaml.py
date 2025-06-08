@@ -1,3 +1,5 @@
+import os
+import shutil
 from Forceringen.util.unified_db_connection import DatabaseConnection
 from Forceringen.util.config_manager import ConfigLoader
 
@@ -37,6 +39,43 @@ class PLCResourceSync:
                 self.yaml_resources.add(resource)
                 self.plc_resources.add((plc, resource))
 
+    def _cleanup_local_files(self, removed_plc_resources, removed_plcs):
+        """
+        Clean up local .dat files for removed PLCs and resources.
+        
+        Args:
+            removed_plc_resources: Set of (plc_name, resource_name) tuples that were removed
+            removed_plcs: Set of plc_names that were completely removed
+        """
+        base_local_dir = self.config_loader.get('local_base_dir', '')
+        if not base_local_dir:
+            print("Warning: local_base_dir not configured, skipping file cleanup")
+            return
+            
+        # Clean up removed PLC-resource combinations
+        for plc_name, resource_name in removed_plc_resources:
+            # Remove specific resource .dat file
+            plc_dir = os.path.join(base_local_dir, plc_name)
+            if os.path.exists(plc_dir):
+                # Look for files matching the pattern: {plc}_{resource}.dat
+                dat_file = os.path.join(plc_dir, f"{plc_name}_{resource_name}.dat")
+                if os.path.exists(dat_file):
+                    try:
+                        os.remove(dat_file)
+                        print(f"Removed local file: {dat_file}")
+                    except OSError as e:
+                        print(f"Error removing file {dat_file}: {e}")
+                        
+        # Clean up completely removed PLCs (remove entire directory)
+        for plc_name in removed_plcs:
+            plc_dir = os.path.join(base_local_dir, plc_name)
+            if os.path.exists(plc_dir):
+                try:
+                    shutil.rmtree(plc_dir)
+                    print(f"Removed PLC directory: {plc_dir}")
+                except OSError as e:
+                    print(f"Error removing directory {plc_dir}: {e}")
+
     async def sync_async(self):
         """
         Synchronize PLCs and resources between YAML and database (asynchronous version).
@@ -72,8 +111,14 @@ class PLCResourceSync:
             for record in records:
                 db_plc_resources.add((record['plc_name'], record['resource_name']))
 
-            # Find removed PLC-resource combinations
+            # Find removed PLC-resource combinations and completely removed PLCs
             removed_plc_resources = db_plc_resources - self.plc_resources
+            removed_plcs = db_plcs - self.yaml_plcs
+
+            # Clean up local files BEFORE database cleanup
+            self._cleanup_local_files(removed_plc_resources, removed_plcs)
+
+            # Database cleanup (existing code)
             for plc_name, resource_name in removed_plc_resources:
                 print(f"Removing PLC-resource combination: {plc_name}-{resource_name}")
                 await conn.execute(
@@ -82,7 +127,7 @@ class PLCResourceSync:
                 )
 
             # Delete PLCs that are in DB but not in YAML
-            for plc_name in db_plcs - self.yaml_plcs:
+            for plc_name in removed_plcs:
                 print(f"Removing PLC: {plc_name}")
                 await conn.execute("EXEC delete_plc_all_bits :plc_name", {"plc_name": plc_name})
                 await conn.execute("DELETE FROM plc WHERE plc_name = :plc_name", {"plc_name": plc_name})
@@ -138,14 +183,20 @@ class PLCResourceSync:
             for record in records:
                 db_plc_resources.add((record[0], record[1]))
 
-            # Find removed PLC-resource combinations
+            # Find removed PLC-resource combinations and completely removed PLCs
             removed_plc_resources = db_plc_resources - self.plc_resources
+            removed_plcs = db_plcs - self.yaml_plcs
+
+            # Clean up local files BEFORE database cleanup
+            self._cleanup_local_files(removed_plc_resources, removed_plcs)
+
+            # Database cleanup (existing code)
             for plc_name, resource_name in removed_plc_resources:
                 print(f"Removing PLC-resource combination: {plc_name}-{resource_name}")
                 cursor.execute("EXEC delete_plc_resource_bits ?, ?", (plc_name, resource_name))
 
             # Delete PLCs that are in DB but not in YAML
-            for plc_name in db_plcs - self.yaml_plcs:
+            for plc_name in removed_plcs:
                 print(f"Removing PLC: {plc_name}")
                 cursor.execute("EXEC delete_plc_all_bits ?", (plc_name,))
                 cursor.execute("DELETE FROM plc WHERE plc_name = ?", (plc_name,))
