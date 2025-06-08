@@ -87,6 +87,7 @@ def update_configuration(yaml_content, test_config, config_loader, save_message)
     config_loader.save_config(yaml_content)
     save_message.set("Configuration saved successfully!")
 
+
     # Reinitialize config loader
     config_loader = ConfigLoader("../config/plc.yaml")
 
@@ -154,30 +155,23 @@ async def sync_with_database(config_loader, save_message, session):
         # Force UI update
         await session.send_custom_message("force_update", {})
 
-        # Get database connection using unified connection
-        db_connection = DatabaseConnection(config_loader)
-        conn = await db_connection.get_connection(is_async=True)
+        # Sync database - PLCResourceSync creates its own connection
+        plc_sync = PLCResourceSync(config_loader)
+        await plc_sync.sync_async()  # Remove the conn parameter
 
-        try:
-            # Sync database
-            plc_sync = PLCResourceSync(config_loader)
-            await plc_sync.sync_async(conn)
-
-            # Update status
-            save_message.set("Configuration saved and database synchronized successfully!")
-        finally:
-            await conn.disconnect()
+        # Update status
+        save_message.set("Configuration saved and database synchronized successfully!")
 
     except ImportError as import_err:
         save_message.set(f"Configuration saved but couldn't import database module: {str(import_err)}")
-    except sqlalchemy.exc.OperationalError as db_conn_err:  # Changed from psycopg2
+    except sqlalchemy.exc.OperationalError as db_conn_err:
         save_message.set(f"Configuration saved but database connection failed: {str(db_conn_err)}")
     except Exception as db_error:
         import traceback
         error_details = traceback.format_exc()
         print(f"Database sync error: {error_details}")
         save_message.set(f"Configuration saved but database sync failed: {str(db_error)}")
-
+        
 def create_resource_click_handler(config, inputs, selected_resource, selected_plc, selected_view, plc_bits_data, config_loader):
     """
     Information:

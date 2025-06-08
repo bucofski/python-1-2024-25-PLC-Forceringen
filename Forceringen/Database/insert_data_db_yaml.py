@@ -91,30 +91,10 @@ class PLCResourceSync:
             for resource_name in db_resources - self.yaml_resources:
                 await conn.execute("DELETE FROM resource WHERE resource_name = :resource_name", {"resource_name": resource_name})
 
-            # Insert new PLCs
-            for plc in self.yaml_plcs:
-                await conn.execute("""
-                                INSERT INTO plc (plc_name)
-                                VALUES (:plc_name) 
-                                """, {"plc_name": plc})
+            # REMOVED: Manual INSERT statements for PLCs and resources
+            # Let the upsert_plc_bits procedure handle creating them when needed
 
-            # Insert new Resources
-            for resource in self.yaml_resources:
-                await conn.execute("""
-                                INSERT INTO resource (resource_name)
-                                VALUES (:resource_name)
-                                """, {"resource_name": resource})
-
-            # Build lookup maps for IDs if needed for other operations
-            plc_lookup = {}
-            records = await conn.fetch_all("SELECT plc_id, plc_name FROM plc")
-            for record in records:
-                plc_lookup[record['plc_name']] = record['plc_id']
-
-            resource_lookup = {}
-            records = await conn.fetch_all("SELECT resource_id, resource_name FROM resource")
-            for record in records:
-                resource_lookup[record['resource_name']] = record['resource_id']
+            print(f"Sync completed. YAML has {len(self.yaml_plcs)} PLCs and {len(self.yaml_resources)} resources")
 
         finally:
             await conn.disconnect()
