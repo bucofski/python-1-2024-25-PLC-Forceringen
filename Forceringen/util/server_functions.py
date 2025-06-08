@@ -178,59 +178,6 @@ async def sync_with_database(config_loader, save_message, session):
         print(f"Database sync error: {error_details}")
         save_message.set(f"Configuration saved but database sync failed: {str(db_error)}")
 
-# async def fetch_bit_history(bit_data, config_loader, selected_plc, bit_history_data):
-#     """
-#     Information:
-#         Fetches the last 5 force history records for a selected bit from the database.
-#         Queries the last_5_force_reasons_per_bit view and updates the bit_history_data
-#         reactive value with the results.
-#
-#     Parameters:
-#         Input: bit_data - Dictionary containing information about the selected bit
-#               config_loader - ConfigLoader instance with database connection information
-#               selected_plc - Reactive value for the currently selected PLC
-#               bit_history_data - Reactive value to store the history data
-#
-#     Date: 03/06/2025
-#     Author: TOVY
-#     """
-#
-#     try:
-#         # Use unified database connection
-#         db_connection = DatabaseConnection(config_loader)
-#         conn = await db_connection.get_connection(is_async=True)
-#
-#         try:
-#             plc_name = bit_data.get('PLC') or selected_plc()
-#             resource_name = bit_data.get('resource')
-#             bit_number = bit_data.get('bit_number')
-#
-#             # Query with SQL Server syntax (named parameters)
-#             history_query = """
-#                 SELECT *
-#                 FROM last_5_force_reasons_per_bit
-#                 WHERE PLC = :plc_name
-#                   AND resource = :resource_name
-#                   AND bit_number = :bit_number
-#                 ORDER BY forced_at DESC;
-#             """
-#
-#             history_results = await conn.fetch_all(history_query, {
-#                 "plc_name": plc_name,
-#                 "resource_name": resource_name,
-#                 "bit_number": bit_number
-#             })
-#
-#             bit_history_data.set(history_results)
-#             print(f"Fetched {len(history_results)} history records for bit {bit_number}")
-#
-#         finally:
-#             await conn.disconnect()
-#
-#     except Exception as e:
-#         print(f"Error fetching bit history: {str(e)}")
-#         bit_history_data.set([])
-
 def create_resource_click_handler(config, inputs, selected_resource, selected_plc, selected_view, plc_bits_data, config_loader):
     """
     Information:
@@ -430,13 +377,12 @@ def create_detail_click_handler(plc_bits_data, inputs, selected_bit_detail, sele
     return handle_detail_clicks
 
 
-def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_resource, save_message, config_loader):
+def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_resource, save_message, config_loader, selected_bit_detail=None, bit_history_data=None):
     """
     Information:
-        Creates a reactive effect handler for saving reason and forced_by values
-        when the Enter key is pressed in the table view.
-        Captures the index, reason text, and forced_by text from the triggered event,
-        updates the database with the new values, and refreshes the local data.
+        Creates a unified reactive effect handler for saving reason and forced_by values
+        when the Enter key is pressed in either table view or detail view.
+        Handles both view contexts based on the provided parameters.
 
     Parameters:
         Input: inputs - Shiny inputs object
@@ -445,36 +391,65 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
               selected_resource - Reactive value for the selected resource
               save_message - Reactive value to display status messages
               config_loader - ConfigLoader instance for database access
+              selected_bit_detail - Optional reactive value for the selected bit detail (detail view)
+              bit_history_data - Optional reactive value to store the bit history data (detail view)
         Output: Reactive effect function that handles saving reasons on Enter key
 
-    Date: 03/06/2025
+    Date: 08/06/2025
     Author: TOVY
     """
 
+    # Handler for table view (resource/ALL view)
     @reactive.effect
     @reactive.event(inputs.save_reason_triggered)
-    async def handle_save_reason_on_enter():
-        trigger_data = inputs.save_reason_triggered()
+    async def handle_save_reason_table():
+        await _save_reason_common("table", inputs.save_reason_triggered())
+
+    # Handler for detail view
+    @reactive.effect
+    @reactive.event(inputs.save_reason_detail_triggered)
+    async def handle_save_reason_detail():
+        await _save_reason_common("detail", inputs.save_reason_detail_triggered())
+
+    async def _save_reason_common(view_type, trigger_data):
+        """Common logic for saving reasons in both views"""
         if not trigger_data:
             return
 
-        # Get data from the triggered event
-        index = int(trigger_data.get('index', -1))
-        reason_text = trigger_data.get('reasonValue', '')
-        forced_text = trigger_data.get('forcedValue', '')
+        # Get data based on view type
+        if view_type == "table":
+            # Table view logic
+            index = int(trigger_data.get('index', -1))
+            reason_text = trigger_data.get('reasonValue', '')
+            forced_text = trigger_data.get('forcedValue', '')
 
-        # Get the data
-        data = plc_bits_data()
-        if not data or index < 0 or index >= len(data):
-            save_message.set("Error: Invalid data index")
-            return
+            data = plc_bits_data()
+            if not data or index < 0 or index >= len(data):
+                save_message.set("Error: Invalid data index")
+                return
 
-        # Get the record that needs updating
-        record = data[index]
-        plc_name = selected_plc.get()
-        resource_name = selected_resource.get()
-        bit_number = record.get('bit_number')
-        print(f"Saving reason for bit {bit_number} on PLC {plc_name} resource {resource_name}...")
+            record = data[index]
+            plc_name = selected_plc.get()
+            resource_name = selected_resource.get()
+            bit_number = record.get('bit_number')
+
+        else:  # detail view
+            # Detail view logic
+            reason_text = trigger_data.get('reasonValue', '')
+            forced_text = trigger_data.get('forcedValue', '')
+
+            bit_data = selected_bit_detail()
+            if not bit_data:
+                save_message.set("Error: No bit selected")
+                return
+
+            plc_name = bit_data.get('PLC') or selected_plc()
+            resource_name = bit_data.get('resource') or selected_resource()
+            bit_number = bit_data.get('bit_number')
+            record = bit_data
+
+        print(f"Saving reason in {view_type} view for bit {bit_number} on PLC {plc_name} resource {resource_name}...")
+
         try:
             # Create DB connection using unified connection
             db_connection = DatabaseConnection(config_loader)
@@ -492,18 +467,34 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
                         "forced_text": forced_text
                     }
                 )
+
                 # Check result and update status
                 if result:
                     save_message.set(f"Reason saved for bit {bit_number}")
                     print(f"Updated reason for bit {bit_number} to: {reason_text}")
                     print(f"Updated forced_by for bit {bit_number} to: {forced_text}")
 
-                    # Update the local data to reflect changes
-                    record['reason'] = reason_text
-                    record['forced_by'] = forced_text
-                    new_data = data.copy()
-                    new_data[index] = record
-                    plc_bits_data.set(new_data)
+                    # Update local data based on view type
+                    if view_type == "table":
+                        # Update table data
+                        record['reason'] = reason_text
+                        record['forced_by'] = forced_text
+                        new_data = data.copy()
+                        new_data[index] = record
+                        plc_bits_data.set(new_data)
+                    else:  # detail view
+                        # Update detail data
+                        updated_bit_data = record.copy()
+                        updated_bit_data['reason'] = reason_text
+                        updated_bit_data['forced_by'] = forced_text
+                        selected_bit_detail.set(updated_bit_data)
+
+                        # Refresh history data if available
+                        if bit_history_data is not None:
+                            repository = PLCBitRepositoryAsync(config_loader)
+                            history_results = await repository.fetch_bit_history(updated_bit_data, selected_plc())
+                            bit_history_data.set(history_results)
+
                 else:
                     save_message.set(f"Failed to save reason for bit {bit_number}")
             finally:
@@ -513,7 +504,7 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
             save_message.set(f"Error: {str(e)}")
             print(f"Database error: {str(e)}")
 
-    return handle_save_reason_on_enter
+    return handle_save_reason_table, handle_save_reason_detail
 
 def create_back_button_handler(inputs, selected_resource, selected_view, plc_bits_data, config_loader, selected_plc):
     """
@@ -555,95 +546,3 @@ def create_back_button_handler(inputs, selected_resource, selected_view, plc_bit
             print(f"Refreshed data for PLC {selected_plc()}")
 
     return handle_back_button
-
-def create_save_reason_detail_handler(inputs, selected_bit_detail, selected_plc, selected_resource, save_message, config_loader, bit_history_data):
-    """
-    Information:
-        Creates a reactive effect handler for saving reason and forced_by values
-        when the Enter key is pressed in the detail view.
-        Captures the reason text and forced_by text from the triggered event,
-        updates the database with the new values, updates the selected bit detail,
-        and refreshes the history data.
-
-    Parameters:
-        Input: inputs - Shiny inputs object
-              selected_bit_detail - Reactive value for the selected bit detail
-              selected_plc - Reactive value for the selected PLC
-              selected_resource - Reactive value for the selected resource
-              save_message - Reactive value to display status messages
-              config_loader - ConfigLoader instance for database access
-              bit_history_data - Reactive value to store the bit history data
-        Output: Reactive effect function that handles saving reasons in detail view on Enter key
-
-    Date: 03/06/2025
-    Author: TOVY
-    """
-
-    @reactive.effect
-    @reactive.event(inputs.save_reason_detail_triggered)
-    async def handle_save_reason_detail_on_enter():
-        trigger_data = inputs.save_reason_detail_triggered()
-        if not trigger_data:
-            return
-
-        # Get data from the triggered event
-        reason_text = trigger_data.get('reasonValue', '')
-        forced_text = trigger_data.get('forcedValue', '')
-
-        # Get the current bit data
-        bit_data = selected_bit_detail()
-        if not bit_data:
-            save_message.set("Error: No bit selected")
-            return
-
-        plc_name = bit_data.get('PLC') or selected_plc()
-        resource_name = bit_data.get('resource') or selected_resource()
-        bit_number = bit_data.get('bit_number')
-        
-        print(f"Saving reason in detail view for bit {bit_number} on PLC {plc_name} resource {resource_name}...")
-        
-        try:
-            # Create DB connection using unified connection
-            db_connection = DatabaseConnection(config_loader)
-            conn = await db_connection.get_connection(is_async=True)
-
-            try:
-                # Update the reason in the database with SQL Server syntax
-                result = await conn.execute(
-                    "EXEC insert_force_reason :plc_name, :resource_name, :bit_number, :reason_text, :forced_text",
-                    {
-                        "plc_name": plc_name,
-                        "resource_name": resource_name,
-                        "bit_number": bit_number,
-                        "reason_text": reason_text,
-                        "forced_text": forced_text
-                    }
-                )
-                
-                # Check result and update status
-                if result:
-                    save_message.set(f"Reason saved for bit {bit_number}")
-                    print(f"Updated reason for bit {bit_number} to: {reason_text}")
-                    print(f"Updated forced_by for bit {bit_number} to: {forced_text}")
-
-                    # Update the selected bit detail data
-                    updated_bit_data = bit_data.copy()
-                    updated_bit_data['reason'] = reason_text
-                    updated_bit_data['forced_by'] = forced_text
-                    selected_bit_detail.set(updated_bit_data)
-                    
-                    # Refresh history data
-                    repository = PLCBitRepositoryAsync(config_loader)
-                    history_results = await repository.fetch_bit_history(updated_bit_data, selected_plc())
-                    bit_history_data.set(history_results)
-
-                else:
-                    save_message.set(f"Failed to save reason for bit {bit_number}")
-            finally:
-                await conn.disconnect()
-
-        except Exception as e:
-            save_message.set(f"Error: {str(e)}")
-            print(f"Database error: {str(e)}")
-
-    return handle_save_reason_detail_on_enter
