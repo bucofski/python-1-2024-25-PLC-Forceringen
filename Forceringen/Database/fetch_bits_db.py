@@ -71,7 +71,6 @@ class PLCBitRepositoryAsync:
                     results = await conn.fetch_all(sql, {"plc_name": plc_name})
                 
                 # Convert results to list of dictionaries
-                print(f"results are :", results)
                 return [record for record in results]
 
             finally:
