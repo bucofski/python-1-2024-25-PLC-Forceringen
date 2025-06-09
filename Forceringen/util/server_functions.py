@@ -410,6 +410,13 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
         if not trigger_data:
             return
 
+        # ✅ Extra defensieve check voor view type
+        if view_type == "detail":
+            bit_data = selected_bit_detail()
+            if not bit_data:
+                print("Warning: Save reason triggered for detail view but no bit selected - ignoring")
+                return  # ✅ Gewoon returnen zonder error message te zetten
+    
         # Get data based on view type
         if view_type == "table":
             # Table view logic
@@ -419,8 +426,8 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
 
             data = plc_bits_data()
             if not data or index < 0 or index >= len(data):
-                save_message.set("Error: Invalid data index")
-                return
+                print("Warning: Save reason triggered for table view but no valid data - ignoring")
+                return  # ✅ Gewoon returnen zonder error message te zetten
 
             record = data[index]
             plc_name = selected_plc.get()
@@ -434,8 +441,8 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
 
             bit_data = selected_bit_detail()
             if not bit_data:
-                save_message.set("Error: No bit selected")
-                return
+                print("Warning: Save reason triggered for detail view but no bit selected - ignoring")
+                return  # ✅ Gewoon returnen zonder error message te zetten
 
             plc_name = bit_data.get('PLC') or selected_plc()
             resource_name = bit_data.get('resource') or selected_resource()

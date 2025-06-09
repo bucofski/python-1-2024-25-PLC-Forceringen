@@ -97,28 +97,33 @@ def server(inputs, outputs, session):
     @reactive.event(inputs.view_output)
     def _():
         selected_view.set("output")
+        save_message.set("")  # ✅ Wis save message bij view wissel
         print("Selected view is:", selected_view())
 
     @reactive.effect
     @reactive.event(inputs.view_config)
     def _():
         selected_view.set("Config")
+        save_message.set("")  # ✅ Wis save message bij view wissel
         print("Selected view is:", selected_view())
 
     @reactive.effect
     @reactive.event(inputs.view_resource)
     def _():
         selected_view.set("resource")
+        save_message.set("")  # ✅ Wis save message bij view wissel
 
     @reactive.effect
     @reactive.event(inputs.view_all)
     def _():
         selected_view.set("ALL")
+        save_message.set("")  # ✅ Wis save message bij view wissel
 
     @reactive.effect
     @reactive.event(inputs.view_detail)
     def _():
         selected_view.set("detail")
+        save_message.set("")  # ✅ Wis save message bij view wissel
 
     # Create event handlers with reactive config - MOVED TO INSIDE EFFECTS
     @reactive.effect
@@ -145,14 +150,22 @@ def server(inputs, outputs, session):
             selected_plc,
             selected_resource,
             save_message,
-            config_loader,
+            current_cfg_loader,  # ✅ Gebruik current_cfg_loader in plaats van config_loader
             selected_bit_detail,  # Voor detail view
             bit_history_data  # Voor detail view
         )
 
-        #        create_save_reason_detail_handler(
-#            inputs, selected_bit_detail, selected_plc, selected_resource, save_message, current_cfg_loader, bit_history_data
-#        )
+        #
+        # create_save_reason_handler(
+        #     inputs,
+        #     plc_bits_data,
+        #     selected_plc,
+        #     selected_resource,
+        #     save_message,
+        #     config_loader,
+        #     selected_bit_detail,  # Voor detail view
+        #     bit_history_data  # Voor detail view
+        # )
 
         create_back_button_handler(
             inputs, selected_resource, selected_view, plc_bits_data, current_cfg_loader, selected_plc
@@ -216,6 +229,9 @@ def server(inputs, outputs, session):
         global config, config_loader
 
         try:
+            # ✅ Wis eerst oude berichten
+            save_message.set("")
+            
             # Step 1: Get and validate YAML content
             yaml_content = inputs.yaml_editor()
             test_config = validate_yaml(yaml_content, save_message)
@@ -245,6 +261,10 @@ def server(inputs, outputs, session):
 
             # Force update of resource buttons by incrementing trigger
             resource_buttons_trigger.set(resource_buttons_trigger() + 1)
+
+            plc_bits_data.set([])
+            selected_bit_detail.set(None)
+            bit_history_data.set([])
 
             save_message.set("Configuration saved successfully!")
 
