@@ -97,33 +97,38 @@ def server(inputs, outputs, session):
     @reactive.event(inputs.view_output)
     def _():
         selected_view.set("output")
-        save_message.set("")  # ✅ Wis save message bij view wissel
+        save_message.set("")
         print("Selected view is:", selected_view())
 
     @reactive.effect
     @reactive.event(inputs.view_config)
     def _():
         selected_view.set("Config")
-        save_message.set("")  # ✅ Wis save message bij view wissel
+        save_message.set("")
+        save_message.set("")
+        plc_bits_data.set([])
+        selected_resource.set(None)
+        selected_plc.set(None)
+        selected_bit_detail.set(None)
+        bit_history_data.set([])
         print("Selected view is:", selected_view())
 
     @reactive.effect
     @reactive.event(inputs.view_resource)
     def _():
         selected_view.set("resource")
-        save_message.set("")  # ✅ Wis save message bij view wissel
+        save_message.set("")
 
     @reactive.effect
     @reactive.event(inputs.view_all)
     def _():
         selected_view.set("ALL")
-        save_message.set("")  # ✅ Wis save message bij view wissel
+        save_message.set("")
 
     @reactive.effect
     @reactive.event(inputs.view_detail)
     def _():
         selected_view.set("detail")
-        save_message.set("")  # ✅ Wis save message bij view wissel
 
     # Create event handlers with reactive config - MOVED TO INSIDE EFFECTS
     @reactive.effect
@@ -150,9 +155,9 @@ def server(inputs, outputs, session):
             selected_plc,
             selected_resource,
             save_message,
-            current_cfg_loader,  # ✅ Gebruik current_cfg_loader in plaats van config_loader
-            selected_bit_detail,  # Voor detail view
-            bit_history_data  # Voor detail view
+            current_cfg_loader,
+            selected_bit_detail,
+            bit_history_data
         )
 
         #
@@ -229,7 +234,6 @@ def server(inputs, outputs, session):
         global config, config_loader
 
         try:
-            # ✅ Wis eerst oude berichten
             save_message.set("")
             
             # Step 1: Get and validate YAML content

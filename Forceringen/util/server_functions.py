@@ -252,8 +252,8 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
     Information:
         Creates a reactive effect handler for PLC button clicks.
         Tracks click counts to detect only new clicks and prevent duplicate processing.
-        When a PLC button is clicked (only when "all" is selected in the dropdown), 
-        it updates the selected PLC, clears the selected resource, 
+        When a PLC button is clicked (only when "all" is selected in the dropdown),
+        it updates the selected PLC, clears the selected resource,
         changes the view to "ALL", and fetches all bit data for the selected PLC.
 
     Parameters:
@@ -272,7 +272,7 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
 
     # Track previous click counts to detect NEW clicks only
     previous_plc_clicks = {}
-    
+
     @reactive.effect
     async def handle_plc_clicks():
 
@@ -286,16 +286,17 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
             if hasattr(inputs, btn_id):
                 btn_input = getattr(inputs, btn_id)
                 current_count = btn_input()
-                
+
                 # Get previous count for this button (default to 0)
                 prev_count = previous_plc_clicks.get(btn_id, 0)
-                
+
                 # Only process if there's a NEW click (current > previous)
                 if current_count > prev_count:
                     hostname = host.get("hostname", host.get("ip_address"))
                     print(f"NEW click - PLC clicked: {hostname}")
                     selected_plc.set(hostname)
                     selected_resource.set(None)
+
                     selected_view.set("ALL")
 
                     repo = PLCBitRepositoryAsync(config_loader)
