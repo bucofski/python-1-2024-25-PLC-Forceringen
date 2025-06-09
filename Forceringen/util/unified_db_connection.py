@@ -63,24 +63,24 @@ class DatabaseConnection:
             "driver": db_config.get("driver", "ODBC Driver 17 for SQL Server")
         }
 
-    def _build_sync_connection_string(self, db_config):
-        """
-        Information:
-            Build synchronous connection string for SQL Server using SQLAlchemy.
-            
-        Parameters:
-            Input: db_config - Dictionary with database connection parameters
-            Output: Connection string for SQLAlchemy synchronous engine
-
-        Date: 03/06/2025
-        Author: TOVY
-        """
-        if db_config.get('trusted_connection') or db_config.get('integrated_security'):
-            # Windows Authentication
-            return f"mssql+pyodbc://{db_config['host']}:{db_config['port']}/{db_config['database']}?driver={db_config['driver'].replace(' ', '+')}&trusted_connection=yes"
-        else:
-            # SQL Server Authentication
-            return f"mssql+pyodbc://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['database']}?driver={db_config['driver'].replace(' ', '+')}"
+    # def _build_sync_connection_string(self, db_config):
+    #     """
+    #     Information:
+    #         Build synchronous connection string for SQL Server using SQLAlchemy.
+    #
+    #     Parameters:
+    #         Input: db_config - Dictionary with database connection parameters
+    #         Output: Connection string for SQLAlchemy synchronous engine
+    #
+    #     Date: 03/06/2025
+    #     Author: TOVY
+    #     """
+    #     if db_config.get('trusted_connection') or db_config.get('integrated_security'):
+    #         # Windows Authentication
+    #         return f"mssql+pyodbc://{db_config['host']}:{db_config['port']}/{db_config['database']}?driver={db_config['driver'].replace(' ', '+')}&trusted_connection=yes"
+    #     else:
+    #         # SQL Server Authentication
+    #         return f"mssql+pyodbc://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['database']}?driver={db_config['driver'].replace(' ', '+')}"
 
     def _build_async_connection_string(self, db_config):
         """
