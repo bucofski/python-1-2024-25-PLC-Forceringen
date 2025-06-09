@@ -71,7 +71,7 @@ def server(inputs, outputs, session):
     selected_bit_detail = reactive.Value(None)  # Store selected bit for detail view
     bit_history_data = reactive.Value([])  # Store history data for detail view
 
-    # Reactive waarde voor host options en config
+    # Reactive value for host options and config
     current_host_options = reactive.Value(config_loader.get_host_options())
     current_config_loader = reactive.Value(config_loader)
     current_config = reactive.Value(config)

@@ -1,7 +1,9 @@
 import os
 import shutil
+import asyncio
 from Forceringen.util.unified_db_connection import DatabaseConnection
 from Forceringen.util.config_manager import ConfigLoader
+from pathlib import Path
 
 
 class PLCResourceSync:
@@ -51,17 +53,17 @@ class PLCResourceSync:
         if not base_local_dir:
             print("Warning: local_base_dir not configured, skipping file cleanup")
             return
-            
+
         # Clean up removed PLC-resource combinations
         for plc_name, resource_name in removed_plc_resources:
-            # Remove specific resource .dat file
-            plc_dir = os.path.join(base_local_dir, plc_name)
-            if os.path.exists(plc_dir):
+            # Use pathlib for cleaner path handling
+            plc_dir = Path(base_local_dir) / plc_name
+            if plc_dir.exists():
                 # Look for files matching the pattern: {plc}_{resource}.dat
-                dat_file = os.path.join(plc_dir, f"{plc_name}_{resource_name}.dat")
-                if os.path.exists(dat_file):
+                dat_file = plc_dir / f"{plc_name}_{resource_name}.dat"
+                if dat_file.exists():
                     try:
-                        os.remove(dat_file)
+                        dat_file.unlink()  # pathlib's equivalent to os.remove()
                         print(f"Removed local file: {dat_file}")
                     except OSError as e:
                         print(f"Error removing file {dat_file}: {e}")
@@ -144,97 +146,101 @@ class PLCResourceSync:
         finally:
             await conn.disconnect()
 
-    def sync(self):
-        """
-        Synchronous version of sync for backwards compatibility.
-        Uses the unified DatabaseConnection for synchronous operations.
-        """
-        # Get sync connection
-        conn = self.db_connection.get_connection(is_async=False)
-        cursor = conn.cursor()
-        
-        try:
-            # Extract data from YAML
-            self._extract_yaml_data()
-
-            # Get existing PLCs and resources from database
-            db_plcs = set()
-            cursor.execute("SELECT plc_name FROM plc")
-            records = cursor.fetchall()
-            for record in records:
-                db_plcs.add(record[0])  # pytds returns tuples
-
-            db_resources = set()
-            cursor.execute("SELECT resource_name FROM resource")
-            records = cursor.fetchall()
-            for record in records:
-                db_resources.add(record[0])
-
-            # Get existing PLC-resource pairs
-            db_plc_resources = set()
-            cursor.execute("""
-                SELECT p.plc_name, r.resource_name 
-                FROM plc p
-                JOIN resource_bit rb ON p.plc_id = rb.plc_id
-                JOIN resource r ON rb.resource_id = r.resource_id
-                GROUP BY p.plc_name, r.resource_name
-            """)
-            records = cursor.fetchall()
-            for record in records:
-                db_plc_resources.add((record[0], record[1]))
-
-            # Find removed PLC-resource combinations and completely removed PLCs
-            removed_plc_resources = db_plc_resources - self.plc_resources
-            removed_plcs = db_plcs - self.yaml_plcs
-
-            # Clean up local files BEFORE database cleanup
-            self._cleanup_local_files(removed_plc_resources, removed_plcs)
-
-            # Database cleanup (existing code)
-            for plc_name, resource_name in removed_plc_resources:
-                print(f"Removing PLC-resource combination: {plc_name}-{resource_name}")
-                cursor.execute("EXEC delete_plc_resource_bits ?, ?", (plc_name, resource_name))
-
-            # Delete PLCs that are in DB but not in YAML
-            for plc_name in removed_plcs:
-                print(f"Removing PLC: {plc_name}")
-                cursor.execute("EXEC delete_plc_all_bits ?", (plc_name,))
-                cursor.execute("DELETE FROM plc WHERE plc_name = ?", (plc_name,))
-
-            # Delete resources that are in DB but not in YAML
-            for resource_name in db_resources - self.yaml_resources:
-                cursor.execute("DELETE FROM resource WHERE resource_name = ?", (resource_name,))
-
-            # Insert new PLCs
-            for plc in self.yaml_plcs:
-                cursor.execute("""
-                    IF NOT EXISTS (SELECT 1 FROM plc WHERE plc_name = ?)
-                    INSERT INTO plc (plc_name) VALUES (?)
-                """, (plc, plc))
-
-            # Insert new Resources
-            for resource in self.yaml_resources:
-                cursor.execute("""
-                    IF NOT EXISTS (SELECT 1 FROM resource WHERE resource_name = ?)
-                    INSERT INTO resource (resource_name) VALUES (?)
-                """, (resource, resource))
-
-            # Commit the transaction
-            conn.commit()
-
-        except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            cursor.close()
-            conn.close()
-
+    # def sync(self):
+    #     """
+    #     Synchronous version of sync for backwards compatibility.
+    #     Uses the unified DatabaseConnection for synchronous operations.
+    #     """
+    #     # Get sync connection
+    #     conn = self.db_connection.get_connection(is_async=False)
+    #     cursor = conn.cursor()
+    #
+    #     try:
+    #         # Extract data from YAML
+    #         self._extract_yaml_data()
+    #
+    #         # Get existing PLCs and resources from database
+    #         db_plcs = set()
+    #         cursor.execute("SELECT plc_name FROM plc")
+    #         records = cursor.fetchall()
+    #         for record in records:
+    #             db_plcs.add(record[0])  # pytds returns tuples
+    #
+    #         db_resources = set()
+    #         cursor.execute("SELECT resource_name FROM resource")
+    #         records = cursor.fetchall()
+    #         for record in records:
+    #             db_resources.add(record[0])
+    #
+    #         # Get existing PLC-resource pairs
+    #         db_plc_resources = set()
+    #         cursor.execute("""
+    #             SELECT p.plc_name, r.resource_name
+    #             FROM plc p
+    #             JOIN resource_bit rb ON p.plc_id = rb.plc_id
+    #             JOIN resource r ON rb.resource_id = r.resource_id
+    #             GROUP BY p.plc_name, r.resource_name
+    #         """)
+    #         records = cursor.fetchall()
+    #         for record in records:
+    #             db_plc_resources.add((record[0], record[1]))
+    #
+    #         # Find removed PLC-resource combinations and completely removed PLCs
+    #         removed_plc_resources = db_plc_resources - self.plc_resources
+    #         removed_plcs = db_plcs - self.yaml_plcs
+    #
+    #         # Clean up local files BEFORE database cleanup
+    #         self._cleanup_local_files(removed_plc_resources, removed_plcs)
+    #
+    #         # Database cleanup (existing code)
+    #         for plc_name, resource_name in removed_plc_resources:
+    #             print(f"Removing PLC-resource combination: {plc_name}-{resource_name}")
+    #             cursor.execute("EXEC delete_plc_resource_bits ?, ?", (plc_name, resource_name))
+    #
+    #         # Delete PLCs that are in DB but not in YAML
+    #         for plc_name in removed_plcs:
+    #             print(f"Removing PLC: {plc_name}")
+    #             cursor.execute("EXEC delete_plc_all_bits ?", (plc_name,))
+    #             cursor.execute("DELETE FROM plc WHERE plc_name = ?", (plc_name,))
+    #
+    #         # Delete resources that are in DB but not in YAML
+    #         for resource_name in db_resources - self.yaml_resources:
+    #             cursor.execute("DELETE FROM resource WHERE resource_name = ?", (resource_name,))
+    #
+    #         # Insert new PLCs
+    #         for plc in self.yaml_plcs:
+    #             cursor.execute("""
+    #                 IF NOT EXISTS (SELECT 1 FROM plc WHERE plc_name = ?)
+    #                 INSERT INTO plc (plc_name) VALUES (?)
+    #             """, (plc, plc))
+    #
+    #         # Insert new Resources
+    #         for resource in self.yaml_resources:
+    #             cursor.execute("""
+    #                 IF NOT EXISTS (SELECT 1 FROM resource WHERE resource_name = ?)
+    #                 INSERT INTO resource (resource_name) VALUES (?)
+    #             """, (resource, resource))
+    #
+    #         # Commit the transaction
+    #         conn.commit()
+    #
+    #     except Exception as e:
+    #         conn.rollback()
+    #         raise e
+    #     finally:
+    #         cursor.close()
+    #         conn.close()
+    #
 
 if __name__ == "__main__":
-    yaml_path = "../config/plc.yaml"
-    config_loader = ConfigLoader(yaml_path)
-    
-    # Create and use the sync class
-    plc_sync = PLCResourceSync(config_loader)
-    plc_sync.sync()  # For synchronous operation
-    # await plc_sync.sync_async()  # For asynchronous operation
+    async def main():
+        yaml_path = "../config/plc.yaml"
+        config_loader = ConfigLoader(yaml_path)
+
+        # Create and use the sync class
+        plc_sync = PLCResourceSync(config_loader)
+        await plc_sync.sync_async()  # For asynchronous operation
+
+
+    # Run the async main function
+    asyncio.run(main())
