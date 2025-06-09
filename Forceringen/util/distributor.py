@@ -10,16 +10,15 @@ Date: 03/06/2025
 Author: TOVY
 """
 
-import yaml
 import os
 import asyncio
-from Groepswerk.PLC.connect_to_PLC import SFTPClient
-from Groepswerk.Database.class_making_querry import FileReader, DataProcessor
-from Groepswerk.Database.class_database import DatabaseSearcher
-from Groepswerk.PLC.class_bit_conversion import BitConversion
+from Forceringen.PLC.ssh_connect_to_PLC import SFTPClient
+from Forceringen.PLC.convert_dat_file import FileReader, DataProcessor
+from Forceringen.PLC.Search_Access import DatabaseSearcher
+from Forceringen.PLC.Value_convertion import BitConversion
 from datetime import datetime
-from Groepswerk.util.class_config_loader import ConfigLoader
-from Groepswerk.Database.class_writes_to_db import BitConversionDBWriter
+from Forceringen.util.config_manager import ConfigLoader
+from Forceringen.Database.writes_bits_to_db import BitConversionDBWriter
 
 def select_sftp_host(config_loader):
     """
@@ -76,11 +75,6 @@ def main():
     """
 
     start = datetime.now()
-    # # Load YAML and select SFTP host(s)
-    # with open("plc.yaml", "r") as f:
-    #     config = yaml.safe_load(f)
-    #
-    # # Load configuration using ConfigLoader instead of direct YAML loading
     config_loader = ConfigLoader("../config/plc.yaml")
 
     host_selection = select_sftp_host(config_loader)

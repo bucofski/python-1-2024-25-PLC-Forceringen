@@ -12,8 +12,8 @@ Author: TOVY
 
 from datetime import datetime
 import pyodbc
-from Groepswerk.Database.class_making_querry import FileReader, DataProcessor
-from Groepswerk.util.class_config_loader import ConfigLoader
+from Forceringen.PLC.convert_dat_file import FileReader, DataProcessor
+from Forceringen.util.config_manager import ConfigLoader
 
 
 class DatabaseSearcher:
@@ -98,17 +98,20 @@ class DatabaseSearcher:
         Author: TOVY
         """
 
-        processed_results = []
+
 
         if not item_list:
             print("Item list is empty. Query aborted.")
-            processed_results.append({
-                        "department_name": department_name,
-                        "PLC": plc,
-                        "resource": resource
-                    })
-            return processed_results
+            # Return a single item with metadata but no actual bit data
+            # This will be processed correctly by the database writer
+            return [{
+                "department_name": department_name,
+                "PLC": plc,
+                "resource": resource,
+                "name_id": None  # This will trigger the empty list logic
+            }]
 
+        processed_results = []
 
         # Prepare search terms and mapping outside query loop
         search_items = [item[0] for item in item_list]

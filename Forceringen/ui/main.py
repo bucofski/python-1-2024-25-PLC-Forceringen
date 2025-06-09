@@ -11,19 +11,19 @@ Date: 03/06/2025
 Author: TOVY
 """
 
-from Groepswerk.util.class_config_loader import ConfigLoader
+from Forceringen.util.config_manager import ConfigLoader
 from shiny import App, ui, render, reactive
-from Groepswerk.ui.ui_components import (
+from Forceringen.ui.ui_components import (
     create_app_ui, create_resource_buttons_ui,
     create_resource_table, create_plc_table, create_detail_view,
     create_config_view, create_output_view
 )
-from Groepswerk.util.server_functions import (
+from Forceringen.util.server_functions import (
     run_distributor_and_capture_output, validate_yaml, update_configuration,
     update_ui_components, sync_with_database,
     create_resource_click_handler, create_plc_click_handler,
     create_detail_click_handler, create_save_reason_handler,
-    create_back_button_handler, create_save_reason_detail_handler
+    create_back_button_handler
 )
 import os
 
@@ -71,7 +71,7 @@ def server(inputs, outputs, session):
     selected_bit_detail = reactive.Value(None)  # Store selected bit for detail view
     bit_history_data = reactive.Value([])  # Store history data for detail view
 
-    # Reactive waarde voor host options en config
+    # Reactive value for host options and config
     current_host_options = reactive.Value(config_loader.get_host_options())
     current_config_loader = reactive.Value(config_loader)
     current_config = reactive.Value(config)
@@ -141,12 +141,19 @@ def server(inputs, outputs, session):
         )
 
         create_save_reason_handler(
-            inputs, plc_bits_data, selected_plc, selected_resource, save_message, current_cfg_loader
+            inputs,
+            plc_bits_data,
+            selected_plc,
+            selected_resource,
+            save_message,
+            config_loader,
+            selected_bit_detail,  # Voor detail view
+            bit_history_data  # Voor detail view
         )
 
-        create_save_reason_detail_handler(
-            inputs, selected_bit_detail, selected_plc, selected_resource, save_message, current_cfg_loader, bit_history_data
-        )
+        #        create_save_reason_detail_handler(
+#            inputs, selected_bit_detail, selected_plc, selected_resource, save_message, current_cfg_loader, bit_history_data
+#        )
 
         create_back_button_handler(
             inputs, selected_resource, selected_view, plc_bits_data, current_cfg_loader, selected_plc
@@ -224,7 +231,7 @@ def server(inputs, outputs, session):
             current_config.set(config)
             new_host_options = config_loader.get_host_options()
             current_host_options.set(new_host_options)
-            
+
             # Update the select input with new options
             option_keys = list(new_host_options.keys()) if new_host_options else []
             ui.update_select(

@@ -1,7 +1,7 @@
 import struct
 from datetime import datetime
-from Groepswerk.Database.class_making_querry import DataProcessor, FileReader
-from Groepswerk.Database.class_database import DatabaseSearcher
+from Forceringen.PLC.convert_dat_file import DataProcessor, FileReader
+from Forceringen.PLC.Search_Access import DatabaseSearcher
 
 
 class BitConversion:
