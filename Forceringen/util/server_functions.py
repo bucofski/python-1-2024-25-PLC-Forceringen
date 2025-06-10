@@ -423,12 +423,13 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
             # Table view logic
             index = int(trigger_data.get('index', -1))
             reason_text = trigger_data.get('reasonValue', '')
+            melding_text = trigger_data.get('meldingValue', '')  # Add melding extraction
             forced_text = trigger_data.get('forcedValue', '')
 
             data = plc_bits_data()
             if not data or index < 0 or index >= len(data):
                 print("Warning: Save reason triggered for table view but no valid data - ignoring")
-                return  # ✅ Gewoon returnen zonder error message te zetten
+                return
 
             record = data[index]
             plc_name = selected_plc.get()
@@ -438,12 +439,13 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
         else:  # detail view
             # Detail view logic
             reason_text = trigger_data.get('reasonValue', '')
+            melding_text = trigger_data.get('meldingValue', '')
             forced_text = trigger_data.get('forcedValue', '')
 
             bit_data = selected_bit_detail()
             if not bit_data:
                 print("Warning: Save reason triggered for detail view but no bit selected - ignoring")
-                return  # ✅ Gewoon returnen zonder error message te zetten
+                return
 
             plc_name = bit_data.get('PLC') or selected_plc()
             resource_name = bit_data.get('resource') or selected_resource()
@@ -458,14 +460,15 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
             conn = await db_connection.get_connection(is_async=True)
 
             try:
-                # Update the reason in the database with SQL Server syntax
+                # Update the reason in the database with SQL Server syntax - FIXED PARAMETER ORDER
                 result = await conn.execute(
-                    "EXEC insert_force_reason :plc_name, :resource_name, :bit_number, :reason_text, :forced_text",
+                    "EXEC insert_force_reason :plc_name, :resource_name, :bit_number, :reason_text, :melding_text, :forced_text",
                     {
                         "plc_name": plc_name,
                         "resource_name": resource_name,
                         "bit_number": bit_number,
                         "reason_text": reason_text,
+                        "melding_text": melding_text,
                         "forced_text": forced_text
                     }
                 )
@@ -474,12 +477,14 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
                 if result:
                     save_message.set(f"Reason saved for bit {bit_number}")
                     print(f"Updated reason for bit {bit_number} to: {reason_text}")
+                    print(f"Updated melding for bit {bit_number} to: {melding_text}")
                     print(f"Updated forced_by for bit {bit_number} to: {forced_text}")
 
                     # Update local data based on view type
                     if view_type == "table":
                         # Update table data
                         record['reason'] = reason_text
+                        record['melding'] = melding_text  # Add melding update
                         record['forced_by'] = forced_text
                         new_data = data.copy()
                         new_data[index] = record
@@ -488,6 +493,7 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
                         # Update detail data
                         updated_bit_data = record.copy()
                         updated_bit_data['reason'] = reason_text
+                        updated_bit_data['melding'] = melding_text  # Add melding update
                         updated_bit_data['forced_by'] = forced_text
                         selected_bit_detail.set(updated_bit_data)
 

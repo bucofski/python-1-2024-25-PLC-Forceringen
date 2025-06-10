@@ -37,11 +37,18 @@ document.addEventListener('DOMContentLoaded', function() {
         );
         const forcedValue = forcedInput?.value || '';
         
+        // Get melding value for both detail and table views
+        const meldingInput = document.getElementById(
+            target.id.replace('reason_input_', 'melding_input_')
+        );
+        const meldingValue = meldingInput?.value || '';
+        
         if (target.id === 'reason_input_detail') {
             // Handle detail view
             Shiny.setInputValue('save_reason_detail_triggered', {
                 reasonValue: target.value,
                 forcedValue: forcedValue,
+                meldingValue: meldingValue,
                 timestamp: Date.now()
             });
         } else {
@@ -51,6 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 index: index,
                 reasonValue: target.value,
                 forcedValue: forcedValue,
+                meldingValue: meldingValue,  // Add this line!
                 timestamp: Date.now()
             });
         }
@@ -253,6 +261,7 @@ def create_table_row(item, index, include_reason_inputs=True, include_resource=F
     comment = format_value_display(item.get('comment', ''))
     second_comment = format_value_display(item.get('second_comment', ''))
     forced_by = format_value_display(item.get('forced_by', ''))
+    melding = format_value_display(item.get('melding', ''))
     reason = format_value_display(item.get('reason', ''))
     
     # Create row class
@@ -279,6 +288,7 @@ def create_table_row(item, index, include_reason_inputs=True, include_resource=F
     if include_reason_inputs:
         cells.extend([
             ui.tags.td(ui.input_text(f"forced_input_{index}", "", value=forced_by, placeholder="Enter user...")),
+            ui.tags.td(ui.input_text(f"melding_input_{index}", "", value=melding, placeholder="Enter user...")),
             ui.tags.td(ui.input_text(f"reason_input_{index}", "", value=reason, placeholder="Enter reason...")),
         ])
     else:
@@ -309,7 +319,7 @@ def create_resource_table(data, selected_resource, selected_plc):
 
     headers = [
         "Sign. Name", "KKS", "Comment", "Second Comment", "Value",
-        "Forced At", "forced by", "Reason", "Details"
+        "Forced At", "forced by","Melding", "Reason", "Details"
     ]
 
     header_row = create_table_header(headers)
@@ -401,9 +411,10 @@ def create_detail_view(bit_data, history_data):
     forced_at = bit_data.get('forced_at')
     forced_at_str = forced_at.strftime("%d-%m-%Y %H:%M:%S") if forced_at else "Not forced"
 
-    # Format input values
+    # Format input values - FIX: Get both reason and melding separately
     forced_by = format_value_display(bit_data.get('forced_by', ''))
     reason = format_value_display(bit_data.get('reason', ''))
+    melding = format_value_display(bit_data.get('melding', ''))  # Add this line
 
     back_button = ui.input_action_button(
         "back_to_list", "← Back to List",
@@ -437,8 +448,13 @@ def create_detail_view(bit_data, history_data):
                 style="margin-bottom: 10px;"
             ),
             ui.tags.div(
+                ui.tags.strong("Melding: "),
+                ui.input_text("melding_input_detail", "", value=melding, placeholder="Enter ticket..."),  # FIX: Use 'melding' here
+                style="margin-bottom: 10px;"
+            ),
+            ui.tags.div(
                 ui.tags.strong("Reason: "),
-                ui.input_text("reason_input_detail", "", value=reason, placeholder="Enter reason..."),
+                ui.input_text("reason_input_detail", "", value=reason, placeholder="Enter reason..."),  # Keep 'reason' here
                 style="margin-bottom: 10px;"
             ),
             style="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;"
@@ -447,7 +463,7 @@ def create_detail_view(bit_data, history_data):
 
     # Create history section
     if history_data:
-        history_headers = ["Forced At", "Deforced At", "Forced By", "Reason"]
+        history_headers = ["Forced At", "Deforced At", "Value", "Melding", "Forced By", "Reason"]
         history_header_row = create_table_header(history_headers)
         
         history_rows = []
@@ -460,13 +476,16 @@ def create_detail_view(bit_data, history_data):
                 deforced_at_hist.strftime("%d-%m-%Y %H:%M:%S") if deforced_at_hist 
                 else ("Still Active" if hist_item == history_data[0] else "N/A")
             )
-            
+            valued_hist = hist_item.get('value')
+            order_hist = hist_item.get('melding')
             forced_by_hist = format_value_display(hist_item.get('forced_by', 'Unknown'), 'Unknown')
             reason_hist = format_value_display(hist_item.get('reason', 'No reason'), 'No reason')
             
             hist_cells = [
                 ui.tags.td(forced_at_str_hist),
                 ui.tags.td(deforced_at_str_hist),
+                ui.tags.td(valued_hist),
+                ui.tags.td(order_hist),
                 ui.tags.td(forced_by_hist),
                 ui.tags.td(reason_hist)
             ]
