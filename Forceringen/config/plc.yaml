@@ -5,6 +5,7 @@ department_name: "BT2"
 username: &username "commisioning"
 password: &password "aslpasupport"
 port: &port 22000
+remote_files: "/dev/HPCI/SYS_INI.sys.ini"
 
 sftp_hosts:
   - hostname: "AFV"
@@ -51,6 +52,7 @@ sftp_hosts:
       - "House"
     db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
 
+
 ### SQL_SERVER info
 # database views
 #database:
@@ -63,7 +65,7 @@ sftp_hosts:
 database:
   host: "localhost"
   port: 1433
-  database: "Forceringen"
+  database: "Forceringen_V2"
   trusted_connection: true
   driver: "ODBC Driver 17 for SQL Server"
   # Add these for Driver 18 if you get SSL/encryption errors:
