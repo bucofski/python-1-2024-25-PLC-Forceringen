@@ -17,7 +17,7 @@ from Forceringen.ui.ui_components import (
     create_resource_table, create_plc_table, create_detail_view,
     create_config_view, create_output_view
 )
-from ..util.server_functions import (
+from Forceringen.util.server_functions import (
     run_distributor_and_capture_output, validate_yaml, update_configuration,
     update_ui_components, sync_with_database,
     create_resource_click_handler, create_plc_click_handler,
