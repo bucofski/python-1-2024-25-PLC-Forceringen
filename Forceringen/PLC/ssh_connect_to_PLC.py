@@ -10,7 +10,7 @@ Date: 03/06/2025
 Author: TOVY
 """
 
-from ..util.config_manager import ConfigLoader
+from Forceringen.util.config_manager import ConfigLoader
 import paramiko
 import os
 

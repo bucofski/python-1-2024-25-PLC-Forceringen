@@ -1,8 +1,8 @@
 import os
 import shutil
 import asyncio
-from..util.unified_db_connection import DatabaseConnection
-from ..util.config_manager import ConfigLoader
+from Forceringen.util.unified_db_connection import DatabaseConnection
+from Forceringen.util.config_manager import ConfigLoader
 from pathlib import Path
 
 

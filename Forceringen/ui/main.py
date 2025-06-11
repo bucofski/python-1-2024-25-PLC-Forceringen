@@ -10,9 +10,9 @@ Date: 03/06/2025
 Author: TOVY
 """
 
-from ..util.config_manager import ConfigLoader
+from Forceringen.util.config_manager import ConfigLoader
 from shiny import App, ui, render, reactive
-from ..ui.ui_components import (
+from Forceringen.ui.ui_components import (
     create_app_ui, create_resource_buttons_ui,
     create_resource_table, create_plc_table, create_detail_view,
     create_config_view, create_output_view

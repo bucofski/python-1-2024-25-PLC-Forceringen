@@ -10,12 +10,12 @@ Author: [Insert your name here]
 """
 
 import json
-from ..PLC.Value_convertion import BitConversion
-from ..Database.fetch_bits_db import PLCBitRepositoryAsync
-from ..util.unified_db_connection import DatabaseConnection
-from ..util.config_manager import ConfigLoader
-from ..PLC.convert_dat_file import DataProcessor, FileReader
-from ..PLC.Search_Access import DatabaseSearcher
+from Forceringen.PLC.Value_convertion import BitConversion
+from Forceringen.Database.fetch_bits_db import PLCBitRepositoryAsync
+from Forceringen.util.unified_db_connection import DatabaseConnection
+from Forceringen.util.config_manager import ConfigLoader
+from Forceringen.PLC.convert_dat_file import DataProcessor, FileReader
+from Forceringen.PLC.Search_Access import DatabaseSearcher
 import asyncio
 import threading
 from sqlalchemy import text
