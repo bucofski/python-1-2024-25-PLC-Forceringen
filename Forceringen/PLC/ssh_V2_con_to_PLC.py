@@ -14,7 +14,6 @@ Author: TOVY
 from Forceringen.util.config_manager import ConfigLoader
 import paramiko
 import os
-import stat
 
 
 class SCPClient:
@@ -352,7 +351,7 @@ class SCPClient:
 
 if __name__ == "__main__":
     # Load config from yaml
-    config = ConfigLoader("config/plc.yaml")
+    config = ConfigLoader("../config/plc.yaml")
 
     sftp_hosts = config.get("sftp_hosts", [])
     if not sftp_hosts:

@@ -170,7 +170,7 @@ if __name__ == "__main__":
     port = selected_host['port']
     username = selected_host['username']
     password = selected_host['password']
-    remote_files = selected_host.get('remote_files', [])
+    remote_files = selected_host.get('remote_files') or config.get('remote_files', [])
 
     # Get local_base_dir from the root config if not present in host config
     local_base_dir = selected_host.get('local_base_dir') or config.get('local_base_dir')
