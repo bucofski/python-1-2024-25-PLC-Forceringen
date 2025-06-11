@@ -10,14 +10,14 @@ Date: 03/06/2025
 Author: TOVY
 """
 
-from Forceringen.util.config_manager import ConfigLoader
+from ..util.config_manager import ConfigLoader
 from shiny import App, ui, render, reactive
-from Forceringen.ui.ui_components import (
+from ..ui.ui_components import (
     create_app_ui, create_resource_buttons_ui,
     create_resource_table, create_plc_table, create_detail_view,
     create_config_view, create_output_view
 )
-from Forceringen.util.server_functions import (
+from ..util.server_functions import (
     run_distributor_and_capture_output, validate_yaml, update_configuration,
     update_ui_components, sync_with_database,
     create_resource_click_handler, create_plc_click_handler,
@@ -28,10 +28,9 @@ import os
 
 # Read host options from YAML
 script_dir = os.path.dirname(os.path.abspath(__file__))
-yaml_path = os.path.join(script_dir, "..", "config", "plc.yaml")
-
+yaml_path = os.path.abspath(os.path.join(script_dir, "..", "config", "plc.yaml"))
 try:
-    config_loader = ConfigLoader("../config/plc.yaml")
+    config_loader = ConfigLoader(str(yaml_path))
     config = config_loader.config  # Store for backward compatibility
     host_options = config_loader.get_host_options()
 except FileNotFoundError:
@@ -79,7 +78,7 @@ def server(inputs, outputs, session):
     @reactive.effect
     def initialize_host_select():
         """Initialize host select with fresh data from config file"""
-        fresh_config_loader = ConfigLoader("../config/plc.yaml")
+        fresh_config_loader = ConfigLoader(str(yaml_path))
         fresh_options = fresh_config_loader.get_host_options()
         current_host_options.set(fresh_options)
         current_config_loader.set(fresh_config_loader)

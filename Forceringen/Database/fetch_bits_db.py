@@ -11,7 +11,7 @@ Author: TOVY
 """
 
 import asyncio
-from Forceringen.util.unified_db_connection import DatabaseConnection
+from ..util.unified_db_connection import DatabaseConnection
 
 class PLCBitRepositoryAsync:
     """

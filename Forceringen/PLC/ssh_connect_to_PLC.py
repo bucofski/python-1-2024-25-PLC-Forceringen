@@ -10,7 +10,7 @@ Date: 03/06/2025
 Author: TOVY
 """
 
-from Forceringen.util.config_manager import ConfigLoader
+from ..util.config_manager import ConfigLoader
 import paramiko
 import os
 
@@ -69,7 +69,7 @@ class SFTPClient:
             self.sftp = self.ssh.open_sftp()
             print(f"Connected to {self.hostname}:{self.port}")
         except Exception as e:
-            print(f"Connection error: {e}")
+            print(f"🔺 Connection error: {e}")
 
     def download_file(self, remote_file, local_file):
         """
