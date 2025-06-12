@@ -5,8 +5,6 @@ department_name: "BT2"
 username: &username "commisioning"
 password: &password "aslpasupport"
 port: &port 22000
-remote_files:
-  - "/dev/HPCI/SYS_INI.sys.ini"
 
 sftp_hosts:
   - hostname: "AFV"

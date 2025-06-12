@@ -126,9 +126,9 @@ def run_main_with_host(config_loader, selected_host_name, is_gui_context=False):
     username = host_cfg['username']
     password = host_cfg['password']
 
-    # UPDATED: get resources list and construct file paths dynamically
+    # UPDATED: Changed file path pattern from {hostname}/{resource}/for.dat to /ide0/{resource}/for.dat
     resources = host_cfg.get('resources', [])
-    remote_files = [f"{host_cfg['hostname']}/{resource}/for.dat" for resource in resources]
+    remote_files = [f"/ide0/{resource}/for.dat" for resource in resources]
 
     base_local_dir = config_loader.get('local_base_dir', '')
     host_name = host_cfg.get('hostname')
@@ -140,7 +140,8 @@ def run_main_with_host(config_loader, selected_host_name, is_gui_context=False):
 
     client = SFTPClient(hostname, port, username, password)
     client.connect()
-    client.download_files(remote_files, local_base_dir)
+    # Pass the hostname as PLC name for consistent local file naming
+    client.download_files(remote_files, local_base_dir, host_cfg.get('hostname'))
     client.close()
 
     if not os.path.exists(local_base_dir):
