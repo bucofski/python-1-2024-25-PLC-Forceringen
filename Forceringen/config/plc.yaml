@@ -2,8 +2,8 @@ local_base_dir: "C:/Overrides/"
 department_name: "BT2"
 # this is so because if there is a difference in PLC connection
 # then it can be changed on PLC level
-username: &username "commisioning"
-password: &password "aslpasupport"
+username: &username "Commissioning"
+password: &password "alspasupport"
 port: &port 22000
 
 sftp_hosts:
@@ -16,8 +16,7 @@ sftp_hosts:
       - "Insp"
       - "House"
       - "UitSeq"
-    #db_path: "//SVKWA337/Pilot_Project/Rxi/REG/controller.ctrl"
-    db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
+    db_path: "//SVKWA337/Pilot_Project/Rxi/AFV/controller.ctrl/controller_l.mdb"
 
   - hostname: "REG"
     ip_address: "10.243.13.89"
@@ -26,7 +25,7 @@ sftp_hosts:
     password: *password
     resources:
       - "House"
-    db_path: "//SVKWA337/Pilot_Project/Rxi/AFV/controller.ctrl"
+    db_path: "//SVKWA337/Pilot_Project/Rxi/AFV/controller.ctrl/controller_l.mdb"
 
 
   - hostname: "BTEST"
