@@ -155,8 +155,9 @@ class SFTPClient:
 
 
 if __name__ == "__main__":
+    from Forceringen.util.config_manager import ConfigLoader
     # Load config from yaml
-    config = ConfigLoader("../config/plc.yaml")
+    config_loader = ConfigLoader(str(config_path.get_path()))
 
     sftp_hosts = config.get("sftp_hosts", [])
     if not sftp_hosts:

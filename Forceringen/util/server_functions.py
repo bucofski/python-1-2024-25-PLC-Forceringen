@@ -89,7 +89,7 @@ def update_configuration(yaml_content, test_config, config_loader, save_message)
 
 
     # Reinitialize config loader
-    config_loader = ConfigLoader("../config/plc.yaml")
+    config_loader = ConfigLoader(yaml_path=config_loader.yaml_path)
 
     return test_config, config_loader
 

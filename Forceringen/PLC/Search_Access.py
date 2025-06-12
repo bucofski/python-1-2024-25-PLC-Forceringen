@@ -158,6 +158,7 @@ class DatabaseSearcher:
 
 
 if __name__ == "__main__":
+    from Forceringen.config.yaml_path import config_path
     """
         Information:
             Main execution block that demonstrates the usage of the DatabaseSearcher class.
@@ -171,8 +172,7 @@ if __name__ == "__main__":
     start = datetime.now()
 
     # Use ConfigLoader to load configuration from YAML
-    config_loader = ConfigLoader("../config/plc.yaml")
-    config = config_loader.config
+    config_loader = ConfigLoader(str(config_path.get_path()))
     department_name = config.get("department_name", "UNKNOWN")
 
     db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"

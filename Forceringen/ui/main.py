@@ -1,3 +1,4 @@
+
 """
 PLC Management and Monitoring Shiny Application
 
@@ -9,7 +10,7 @@ Information:
 Date: 03/06/2025
 Author: TOVY
 """
-
+from Forceringen.config.yaml_path import config_path
 from Forceringen.util.config_manager import ConfigLoader
 from shiny import App, ui, render, reactive
 from Forceringen.ui.ui_components import (
@@ -26,18 +27,16 @@ from Forceringen.util.server_functions import (
 )
 import os
 
-# Read host options from YAML
-script_dir = os.path.dirname(os.path.abspath(__file__))
-yaml_path = os.path.abspath(os.path.join(script_dir, "..", "config", "plc.yaml"))
 try:
-    config_loader = ConfigLoader(str(yaml_path))
+    config_loader = config_path.create_config_loader()
     config = config_loader.config  # Store for backward compatibility
     host_options = config_loader.get_host_options()
 except FileNotFoundError:
     raise RuntimeError(
-        f"YAML config file not found: {yaml_path}\n"
+        f"YAML config file not found: {config_path.get_path()}\n"
         "Please make sure 'plc.yaml' exists in the group work folder next to this script."
     )
+
 
 # Create the UI with initial host options
 app_ui = create_app_ui(host_options)
@@ -78,7 +77,7 @@ def server(inputs, outputs, session):
     @reactive.effect
     def initialize_host_select():
         """Initialize host select with fresh data from config file"""
-        fresh_config_loader = ConfigLoader(str(yaml_path))
+        fresh_config_loader = ConfigLoader(str(config_path.get_path()))
         fresh_options = fresh_config_loader.get_host_options()
         current_host_options.set(fresh_options)
         current_config_loader.set(fresh_config_loader)
@@ -213,7 +212,7 @@ def server(inputs, outputs, session):
         if selected_view() == "output":
             return create_output_view()
         elif selected_view() == "Config":
-            return create_config_view(yaml_path)
+            return create_config_view(config_path.get_path())
         elif selected_view() == "resource":
             data = plc_bits_data()
             return create_resource_table(data, selected_resource, selected_plc)

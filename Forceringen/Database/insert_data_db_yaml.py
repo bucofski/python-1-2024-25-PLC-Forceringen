@@ -147,9 +147,9 @@ class PLCResourceSync:
             await conn.disconnect()
 
 if __name__ == "__main__":
+    from Forceringen.config.yaml_path import config_path
     async def main():
-        yaml_path = "../config/plc.yaml"
-        config_loader = ConfigLoader(yaml_path)
+        config_loader = ConfigLoader(str(config_path.get_path()))
 
         # Create and use the sync class
         plc_sync = PLCResourceSync(config_loader)
