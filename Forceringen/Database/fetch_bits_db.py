@@ -135,7 +135,7 @@ if __name__ == "__main__":
     # You need to create an instance of the class and a config_loader
     # This is just an example - you'll need to import and create your actual config_loader
     from Forceringen.util.config_manager import ConfigLoader
-    from Forceringen.config.yaml_path import config_path
+    from Forceringen.config.config_path import config_path
 
     try:
         # Create config loader using the proper config path

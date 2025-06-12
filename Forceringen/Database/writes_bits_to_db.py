@@ -147,7 +147,7 @@ class BitConversionDBWriter(BitConversion):
 
 
 if __name__ == "__main__":
-    from Forceringen.config.yaml_path import config_path
+    from Forceringen.config.config_path import config_path
     async def main():
         """
         Information:

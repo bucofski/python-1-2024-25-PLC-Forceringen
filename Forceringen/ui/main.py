@@ -10,7 +10,7 @@ Information:
 Date: 03/06/2025
 Author: TOVY
 """
-from Forceringen.config.yaml_path import config_path
+from Forceringen.config.config_path import config_path
 from Forceringen.util.config_manager import ConfigLoader
 from shiny import App, ui, render, reactive
 from Forceringen.ui.ui_components import (
