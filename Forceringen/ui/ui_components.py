@@ -693,7 +693,7 @@ def create_app_ui(host_options):
         # Top bar
         ui.tags.div(
             ui.tags.h1(
-                "PLC Forceringen",
+                "PLC Overrides",
                 style="margin: 0; color: white; font-size: 2rem; text-align: center;"
             ),
             style=f"""
@@ -724,10 +724,10 @@ def create_app_ui(host_options):
                         ),
                         ui.tags.div(
                             ui.input_action_button(
-                                "start_btn", "Get Forcing", class_="button button1",
+                                "start_btn", "Get Overrides", class_="button button1",
                                 style="width:90%; margin-bottom:20px;"
                             ),
-                            "Show Forcing:",
+                            "Show Overrides:",
                         ),
                         ui.output_ui("resource_buttons"),
                         class_="sidebar-top"
