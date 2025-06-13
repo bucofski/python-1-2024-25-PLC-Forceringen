@@ -319,7 +319,7 @@ def create_resource_table(data, selected_resource, selected_plc):
 
     headers = [
         "Sign. Name", "KKS", "Comment", "Second Comment", "Value",
-        "Forced at", "Forced by","Melding", "Reason", "Details"
+        "Forced at", "Forced by","Ticket nr.", "Reason", "Details"
     ]
 
     header_row = create_table_header(headers)
@@ -441,14 +441,14 @@ def create_detail_view(bit_data, history_data):
     force_info = ui.tags.div(
         ui.tags.h3("Current Force Information"),
         ui.tags.div(
-            ui.tags.div(ui.tags.strong("Forced At: "), forced_at_str, style="margin-bottom: 10px;"),
+            ui.tags.div(ui.tags.strong("Forced at: "), forced_at_str, style="margin-bottom: 10px;"),
             ui.tags.div(
-                ui.tags.strong("Forced By: "),
+                ui.tags.strong("Forced by: "),
                 ui.input_text("forced_input_detail", "", value=forced_by, placeholder="Enter user..."),
                 style="margin-bottom: 10px;"
             ),
             ui.tags.div(
-                ui.tags.strong("Ticket nr: "),
+                ui.tags.strong("Ticket nr.: "),
                 ui.input_text("melding_input_detail", "", value=melding, placeholder="Enter ticket..."),  # FIX: Use 'melding' here
                 style="margin-bottom: 10px;"
             ),
@@ -463,7 +463,7 @@ def create_detail_view(bit_data, history_data):
 
     # Create history section
     if history_data:
-        history_headers = ["Forced at", "Deforced at", "Value", "Ticket", "Forced by", "Reason"]
+        history_headers = ["Forced at", "Deforced at", "Value", "Ticket nr.", "Forced by", "Reason"]
         history_header_row = create_table_header(history_headers)
         
         history_rows = []
