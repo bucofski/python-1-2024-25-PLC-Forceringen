@@ -18,6 +18,7 @@ SELECT
     rb.force_active,
     CONVERT(DATETIME, fr.forced_at) AS forced_at,  -- Convert DATETIMEOFFSET to DATETIME
     fr.forced_by,
+    fr.melding,
     fr.reason
 FROM resource_bit rb
 JOIN plc p ON p.plc_id = rb.plc_id

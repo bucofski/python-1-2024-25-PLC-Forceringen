@@ -63,7 +63,7 @@ sftp_hosts:
 database:
   host: "localhost"
   port: 1433
-  database: "Forceringen_V2"
+  database: "Overrides"
   trusted_connection: true
   driver: "ODBC Driver 17 for SQL Server"
   # Add these for Driver 18 if you get SSL/encryption errors:
