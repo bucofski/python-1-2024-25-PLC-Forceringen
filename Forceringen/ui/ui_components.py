@@ -319,7 +319,7 @@ def create_resource_table(data, selected_resource, selected_plc):
 
     headers = [
         "Sign. Name", "KKS", "Comment", "Second Comment", "Value",
-        "Forced At", "forced by","Melding", "Reason", "Details"
+        "Forced at", "Forced by","Melding", "Reason", "Details"
     ]
 
     header_row = create_table_header(headers)
@@ -350,8 +350,8 @@ def create_plc_table(data, selected_plc):
         )
 
     headers = [
-        "resource", "Sign. Name", "KKS", "Comment", "Second Comment", "Value",
-        "Forced At", "forced by", "Details"
+        "Resource", "Sign. Name", "KKS", "Comment", "Second Comment", "Value",
+        "Forced at", "Forced by", "Details"
     ]
 
     header_row = create_table_header(headers)
@@ -448,7 +448,7 @@ def create_detail_view(bit_data, history_data):
                 style="margin-bottom: 10px;"
             ),
             ui.tags.div(
-                ui.tags.strong("Melding: "),
+                ui.tags.strong("Ticket nr: "),
                 ui.input_text("melding_input_detail", "", value=melding, placeholder="Enter ticket..."),  # FIX: Use 'melding' here
                 style="margin-bottom: 10px;"
             ),
@@ -463,7 +463,7 @@ def create_detail_view(bit_data, history_data):
 
     # Create history section
     if history_data:
-        history_headers = ["Forced At", "Deforced At", "Value", "Melding", "Forced By", "Reason"]
+        history_headers = ["Forced at", "Deforced at", "Value", "Ticket", "Forced by", "Reason"]
         history_header_row = create_table_header(history_headers)
         
         history_rows = []

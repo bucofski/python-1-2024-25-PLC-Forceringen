@@ -100,7 +100,7 @@ class BitConversionDBWriter(BitConversion):
                 }
             )
 
-            print(f"✅ Procedure executed successfully. Rows affected: {result}")
+            print(f"✅ Procedure executed successfully.")
 
         except Exception as e:
             print(f"Database error: {e}")
