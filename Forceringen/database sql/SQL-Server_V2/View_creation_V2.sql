@@ -67,6 +67,7 @@ SELECT
     b.bit_number,  -- Access bit_number from bit table
     rb.kks,
     bfr.value,  -- Added value from bit_force_reason table
+    bfr.melding,
     CONVERT(DATETIME, bfr.forced_at) as forced_at,
     CONVERT(DATETIME, bfr.deforced_at) as deforced_at,
     bfr.forced_by,
