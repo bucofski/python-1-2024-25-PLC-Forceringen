@@ -1,3 +1,4 @@
+-- Function to delete bits for a specific PLC-resource combination only - SQL Server version (Updated for new structure)
 -- Function to delete bits for a specific PLC-resource combination only - SQL Server version
 CREATE OR ALTER PROCEDURE delete_plc_resource_bits
     @p_plc_name NVARCHAR(100),
@@ -44,10 +45,10 @@ BEGIN
         RETURN;
     END
 
-    -- Count force reasons that will be deleted
+    -- Count force reasons that will be deleted (updated for new structure)
     SELECT @v_deleted_reasons = COUNT(*)
     FROM bit_force_reason bfr
-    INNER JOIN resource_bit rb ON bfr.bit_id = rb.bit_id
+    INNER JOIN resource_bit rb ON bfr.resource_bit_id = rb.resource_bit_id
     WHERE rb.plc_id = @v_plc_id AND rb.resource_id = @v_resource_id;
 
     -- Count bits that will be deleted
@@ -59,9 +60,10 @@ BEGIN
         BEGIN TRANSACTION;
 
         -- Delete force reasons first (due to foreign key constraints)
+        -- Updated to use resource_bit_id relationship
         DELETE bfr
         FROM bit_force_reason bfr
-        INNER JOIN resource_bit rb ON bfr.bit_id = rb.bit_id
+        INNER JOIN resource_bit rb ON bfr.resource_bit_id = rb.resource_bit_id
         WHERE rb.plc_id = @v_plc_id AND rb.resource_id = @v_resource_id;
 
         -- Delete all bits for this specific PLC-resource combination
@@ -92,11 +94,7 @@ BEGIN
 END;
 GO
 
--- Test the procedure
-EXEC delete_plc_resource_bits @p_plc_name = 'AFV', @p_resource_name = 'House';
-GO
 
--- Function to delete entire PLC and all associated data - SQL Server version
 CREATE OR ALTER PROCEDURE delete_plc_all_bits
     @p_plc_name NVARCHAR(100)
 AS
@@ -129,10 +127,10 @@ BEGIN
         RETURN;
     END
 
-    -- Count force reasons that will be deleted
+    -- Count force reasons that will be deleted (updated for new structure)
     SELECT @v_deleted_reasons = COUNT(*)
     FROM bit_force_reason bfr
-    INNER JOIN resource_bit rb ON bfr.bit_id = rb.bit_id
+    INNER JOIN resource_bit rb ON bfr.resource_bit_id = rb.resource_bit_id
     WHERE rb.plc_id = @v_plc_id;
 
     -- Count bits that will be deleted
@@ -144,9 +142,10 @@ BEGIN
         BEGIN TRANSACTION;
 
         -- Delete force reasons first (due to foreign key constraints)
+        -- Updated to use resource_bit_id relationship
         DELETE bfr
         FROM bit_force_reason bfr
-        INNER JOIN resource_bit rb ON bfr.bit_id = rb.bit_id
+        INNER JOIN resource_bit rb ON bfr.resource_bit_id = rb.resource_bit_id
         WHERE rb.plc_id = @v_plc_id;
 
         -- Delete all bits for this PLC

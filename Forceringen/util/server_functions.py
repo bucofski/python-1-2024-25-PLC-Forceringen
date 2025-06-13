@@ -89,7 +89,7 @@ def update_configuration(yaml_content, test_config, config_loader, save_message)
 
 
     # Reinitialize config loader
-    config_loader = ConfigLoader("../config/plc.yaml")
+    config_loader = ConfigLoader(yaml_path=config_loader.yaml_path)
 
     return test_config, config_loader
 
@@ -252,8 +252,8 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
     Information:
         Creates a reactive effect handler for PLC button clicks.
         Tracks click counts to detect only new clicks and prevent duplicate processing.
-        When a PLC button is clicked (only when "all" is selected in the dropdown), 
-        it updates the selected PLC, clears the selected resource, 
+        When a PLC button is clicked (only when "all" is selected in the dropdown),
+        it updates the selected PLC, clears the selected resource,
         changes the view to "ALL", and fetches all bit data for the selected PLC.
 
     Parameters:
@@ -272,7 +272,7 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
 
     # Track previous click counts to detect NEW clicks only
     previous_plc_clicks = {}
-    
+
     @reactive.effect
     async def handle_plc_clicks():
 
@@ -286,16 +286,17 @@ def create_plc_click_handler(config, inputs, selected_plc, selected_resource, se
             if hasattr(inputs, btn_id):
                 btn_input = getattr(inputs, btn_id)
                 current_count = btn_input()
-                
+
                 # Get previous count for this button (default to 0)
                 prev_count = previous_plc_clicks.get(btn_id, 0)
-                
+
                 # Only process if there's a NEW click (current > previous)
                 if current_count > prev_count:
                     hostname = host.get("hostname", host.get("ip_address"))
                     print(f"NEW click - PLC clicked: {hostname}")
                     selected_plc.set(hostname)
                     selected_resource.set(None)
+
                     selected_view.set("ALL")
 
                     repo = PLCBitRepositoryAsync(config_loader)
@@ -410,16 +411,24 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
         if not trigger_data:
             return
 
+        # ✅ Extra defensieve check voor view type
+        if view_type == "detail":
+            bit_data = selected_bit_detail()
+            if not bit_data:
+                print("Warning: Save reason triggered for detail view but no bit selected - ignoring")
+                return  # ✅ Gewoon returnen zonder error message te zetten
+    
         # Get data based on view type
         if view_type == "table":
             # Table view logic
             index = int(trigger_data.get('index', -1))
             reason_text = trigger_data.get('reasonValue', '')
+            melding_text = trigger_data.get('meldingValue', '')  # Add melding extraction
             forced_text = trigger_data.get('forcedValue', '')
 
             data = plc_bits_data()
             if not data or index < 0 or index >= len(data):
-                save_message.set("Error: Invalid data index")
+                print("Warning: Save reason triggered for table view but no valid data - ignoring")
                 return
 
             record = data[index]
@@ -430,11 +439,12 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
         else:  # detail view
             # Detail view logic
             reason_text = trigger_data.get('reasonValue', '')
+            melding_text = trigger_data.get('meldingValue', '')
             forced_text = trigger_data.get('forcedValue', '')
 
             bit_data = selected_bit_detail()
             if not bit_data:
-                save_message.set("Error: No bit selected")
+                print("Warning: Save reason triggered for detail view but no bit selected - ignoring")
                 return
 
             plc_name = bit_data.get('PLC') or selected_plc()
@@ -450,14 +460,15 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
             conn = await db_connection.get_connection(is_async=True)
 
             try:
-                # Update the reason in the database with SQL Server syntax
+                # Update the reason in the database with SQL Server syntax - FIXED PARAMETER ORDER
                 result = await conn.execute(
-                    "EXEC insert_force_reason :plc_name, :resource_name, :bit_number, :reason_text, :forced_text",
+                    "EXEC insert_force_reason :plc_name, :resource_name, :bit_number, :reason_text, :melding_text, :forced_text",
                     {
                         "plc_name": plc_name,
                         "resource_name": resource_name,
                         "bit_number": bit_number,
                         "reason_text": reason_text,
+                        "melding_text": melding_text,
                         "forced_text": forced_text
                     }
                 )
@@ -466,12 +477,14 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
                 if result:
                     save_message.set(f"Reason saved for bit {bit_number}")
                     print(f"Updated reason for bit {bit_number} to: {reason_text}")
+                    print(f"Updated melding for bit {bit_number} to: {melding_text}")
                     print(f"Updated forced_by for bit {bit_number} to: {forced_text}")
 
                     # Update local data based on view type
                     if view_type == "table":
                         # Update table data
                         record['reason'] = reason_text
+                        record['melding'] = melding_text  # Add melding update
                         record['forced_by'] = forced_text
                         new_data = data.copy()
                         new_data[index] = record
@@ -480,6 +493,7 @@ def create_save_reason_handler(inputs, plc_bits_data, selected_plc, selected_res
                         # Update detail data
                         updated_bit_data = record.copy()
                         updated_bit_data['reason'] = reason_text
+                        updated_bit_data['melding'] = melding_text  # Add melding update
                         updated_bit_data['forced_by'] = forced_text
                         selected_bit_detail.set(updated_bit_data)
 

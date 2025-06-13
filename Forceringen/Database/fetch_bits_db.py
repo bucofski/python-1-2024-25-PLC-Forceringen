@@ -134,10 +134,11 @@ if __name__ == "__main__":
     # You need to create an instance of the class and a config_loader
     # This is just an example - you'll need to import and create your actual config_loader
     from Forceringen.util.config_manager import ConfigLoader
+    from Forceringen.config.config_path import config_path
 
     try:
-        # Create config loader - adjust path as needed
-        config_loader = ConfigLoader("../config/plc.yaml")
+        # Create config loader using the proper config path
+        config_loader = ConfigLoader(str(config_path.get_path()))
 
         # Create repository instance
         repository = PLCBitRepositoryAsync(config_loader)
@@ -149,7 +150,7 @@ if __name__ == "__main__":
 
     async def quick_test():
         try:
-            config_loader = ConfigLoader("../config/plc.yaml")
+            config_loader = ConfigLoader(str(config_path.get_path()))
             repository = PLCBitRepositoryAsync(config_loader)
 
             # Create test bit data dictionary

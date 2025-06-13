@@ -69,7 +69,7 @@ class SFTPClient:
             self.sftp = self.ssh.open_sftp()
             print(f"Connected to {self.hostname}:{self.port}")
         except Exception as e:
-            print(f"Connection error: {e}")
+            print(f"🔺 Connection error: {e}")
 
     def download_file(self, remote_file, local_file):
         """
@@ -95,16 +95,18 @@ class SFTPClient:
         except Exception as e:
             print(f"Error downloading {remote_file}: {e}")
 
-    def download_files(self, remote_files, local_base_dir):
+    def download_files(self, remote_files, local_base_dir, plc_name=None):
         """
         Information:
             Download multiple files with dynamic local naming.
             Creates a base directory if it doesn't exist.
-            Names local files based on components of the remote path.
+            Names local files based on PLC name and resource from the remote path.
 
         Parameters:
             Input: remote_files - List of paths to files on the remote server
                   local_base_dir - Base directory for storing downloaded files locally
+                  plc_name - Optional PLC name for local file naming. If not provided,
+                           uses parts from the remote path for naming.
 
         Date: 03/06/2025
         Author: TOVY
@@ -116,10 +118,23 @@ class SFTPClient:
 
         for remote_file in remote_files:
             parts = os.path.normpath(remote_file).split(os.sep)
-            if len(parts) < 3:
+            if len(parts) < 2:
                 print(f"Path '{remote_file}' doesn't have enough levels.")
                 continue
-            local_name = f"{parts[-3]}_{parts[-2]}.dat"
+            
+            # Extract resource name from path (e.g., "House" from "/ide0/House/for.dat")
+            resource = parts[-2]  # Second to last part is the resource
+            
+            if plc_name:
+                # Use provided PLC name with resource: {PLC}_{resource}.dat
+                local_name = f"{plc_name}_{resource}.dat"
+            else:
+                # Fallback to original naming scheme
+                if len(parts) < 3:
+                    print(f"Path '{remote_file}' doesn't have enough levels for fallback naming.")
+                    continue
+                local_name = f"{parts[-3]}_{parts[-2]}.dat"
+            
             local_path = os.path.join(local_base_dir, local_name)
             self.download_file(remote_file, local_path)
 
@@ -140,8 +155,9 @@ class SFTPClient:
 
 
 if __name__ == "__main__":
+    from Forceringen.util.config_manager import ConfigLoader
     # Load config from yaml
-    config = ConfigLoader("config/plc.yaml")
+    config_loader = ConfigLoader(str(config_path.get_path()))
 
     sftp_hosts = config.get("sftp_hosts", [])
     if not sftp_hosts:
@@ -189,5 +205,6 @@ if __name__ == "__main__":
         password=password,
     )
     client.connect()
-    client.download_files(remote_files, local_base_dir)
+    # Pass the hostname as PLC name for the local file naming
+    client.download_files(remote_files, local_base_dir, selected_host.get('hostname'))
     client.close()

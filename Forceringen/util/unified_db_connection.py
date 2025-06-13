@@ -1,8 +1,5 @@
 import inspect
-#import asyncio
-from sqlalchemy import create_engine, text
-#from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-#from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 import aioodbc
 
 
@@ -63,25 +60,6 @@ class DatabaseConnection:
             "driver": db_config.get("driver", "ODBC Driver 17 for SQL Server")
         }
 
-    # def _build_sync_connection_string(self, db_config):
-    #     """
-    #     Information:
-    #         Build synchronous connection string for SQL Server using SQLAlchemy.
-    #
-    #     Parameters:
-    #         Input: db_config - Dictionary with database connection parameters
-    #         Output: Connection string for SQLAlchemy synchronous engine
-    #
-    #     Date: 03/06/2025
-    #     Author: TOVY
-    #     """
-    #     if db_config.get('trusted_connection') or db_config.get('integrated_security'):
-    #         # Windows Authentication
-    #         return f"mssql+pyodbc://{db_config['host']}:{db_config['port']}/{db_config['database']}?driver={db_config['driver'].replace(' ', '+')}&trusted_connection=yes"
-    #     else:
-    #         # SQL Server Authentication
-    #         return f"mssql+pyodbc://{db_config['user']}:{db_config['password']}@{db_config['host']}:{db_config['port']}/{db_config['database']}?driver={db_config['driver'].replace(' ', '+')}"
-
     def _build_async_connection_string(self, db_config):
         """
         Information:
@@ -100,32 +78,6 @@ class DatabaseConnection:
         else:
             # SQL Server Authentication
             return f"DRIVER={{{db_config['driver']}}};SERVER={db_config['host']},{db_config['port']};DATABASE={db_config['database']};UID={db_config['user']};PWD={db_config['password']}"
-
-    # def connect(self):
-    #     """
-    #     Information:
-    #         Establish a synchronous connection to the SQL Server database using SQLAlchemy.
-    #         Stores the engine and connection as instance attributes.
-    #         Provides feedback about connection status.
-    #
-    #     Parameters:
-    #         Output: Boolean indicating connection success or failure
-    #
-    #     Date: 03/06/2025
-    #     Author: TOVY
-    #     """
-    #     try:
-    #         db_config = self._get_db_config()
-    #         connection_string = self._build_sync_connection_string(db_config)
-    #
-    #         self.sync_engine = create_engine(connection_string, echo=False)
-    #         self.sync_connection = self.sync_engine.connect()
-    #
-    #         print(f"Connected to SQL Server database: {db_config['database']}")
-    #         return True
-    #     except Exception as e:
-    #         print(f"Database connection error: {e}")
-    #         return False
 
     async def connect_async(self):
         """
@@ -217,26 +169,11 @@ class DatabaseConnection:
                 print(f"Connected asynchronously to SQL Server database: {db_config['database']}")
                 return DatabaseConnectionWrapper(connection, is_async=True)
             return None
-            # else:
-            #     # Synchronous connection with SQLAlchemy
-            #     connection_string = self._build_sync_connection_string(db_config)
-            #     engine = create_engine(connection_string, echo=False)
-            #     connection = engine.connect()
-            #     print(f"Connected to SQL Server database: {db_config['database']}")
-            #     return DatabaseConnectionWrapper(connection, is_async=False, engine=engine)
 
         except Exception as e:
             connection_type = "asynchronous" if is_async else "synchronous"
             print(f"Database {connection_type} connection error: {e}")
             return None
-
-    # # Context manager support for synchronous connections
-    # def __enter__(self):
-    #     self.connect()
-    #     return self
-    #
-    # def __exit__(self, exc_type, exc_val, exc_tb):
-    #     self.disconnect()
 
     # Async context manager support
     async def __aenter__(self):

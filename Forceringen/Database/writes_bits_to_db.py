@@ -100,7 +100,7 @@ class BitConversionDBWriter(BitConversion):
                 }
             )
 
-            print(f"✅ Procedure executed successfully. Rows affected: {result}")
+            print(f"✅ Procedure executed successfully.")
 
         except Exception as e:
             print(f"Database error: {e}")
@@ -147,6 +147,7 @@ class BitConversionDBWriter(BitConversion):
 
 
 if __name__ == "__main__":
+    from Forceringen.config.config_path import config_path
     async def main():
         """
         Information:
@@ -158,7 +159,7 @@ if __name__ == "__main__":
         Author: CHIV
         """
         try:
-            config_loader = ConfigLoader("../config/plc.yaml")
+            config_loader = ConfigLoader(str(config_path.get_path()))
             words_list = FileReader("../tests/BTEST_NIET.dat").read_and_parse_file()
             data_list = list(DataProcessor.convert_and_process_list(words_list))
 

@@ -1,9 +1,10 @@
 -- =============================================
--- function 4.0 change loggings - SQL Server version
+-- function 4.0 change loggings - SQL Server version (Updated for new DB structure)
 -- =============================================
+
 DROP PROCEDURE IF EXISTS upsert_plc_bits;
 
-CREATE   PROCEDURE upsert_plc_bits
+CREATE PROCEDURE upsert_plc_bits
     @p_plc_name NVARCHAR(100),
     @p_resource_name NVARCHAR(100),
     @p_bits_data NVARCHAR(MAX)  -- JSON string instead of JSONB
@@ -16,6 +17,7 @@ BEGIN
     DECLARE @v_bits_count INT = 0;
     DECLARE @v_error_msg NVARCHAR(MAX);
     DECLARE @v_bit_id INT;
+    DECLARE @v_resource_bit_id INT;
     DECLARE @v_existing_force_status BIT;
     DECLARE @v_is_empty_json BIT = 0;
     DECLARE @v_json_array_length INT;
@@ -73,8 +75,8 @@ BEGIN
             -- Update bit_force_reason for all bits that will be deactivated
             UPDATE bit_force_reason
             SET deforced_at = GETDATE()
-            WHERE bit_id IN (
-                SELECT bit_id FROM resource_bit
+            WHERE resource_bit_id IN (
+                SELECT resource_bit_id FROM resource_bit
                 WHERE plc_id = @v_plc_id
                 AND resource_id = @v_resource_id
                 AND force_active = 1
@@ -87,7 +89,7 @@ BEGIN
             AND resource_id = @v_resource_id
             AND force_active = 1;
 
-            COMMIT TRANSACTION;  -- Commit the changes before returning
+            COMMIT TRANSACTION;
 
             INSERT INTO #result VALUES (1, 'Empty JSON received - all bits set to force_active = FALSE for ' + @p_plc_name + '/' + @p_resource_name, 0);
             SELECT * FROM #result;
@@ -104,10 +106,11 @@ BEGIN
         -- 5. Update bit_force_reason for bits that will be deactivated
         UPDATE bit_force_reason
         SET deforced_at = GETDATE()
-        WHERE bit_id IN (
-            SELECT rb.bit_id
+        WHERE resource_bit_id IN (
+            SELECT rb.resource_bit_id
             FROM resource_bit rb
-            LEFT JOIN #incoming_bit_numbers ibn ON rb.bit_number = ibn.bit_number
+            INNER JOIN bit b ON rb.bit_id = b.bit_id
+            LEFT JOIN #incoming_bit_numbers ibn ON b.bit_number = ibn.bit_number
             WHERE rb.plc_id = @v_plc_id
             AND rb.resource_id = @v_resource_id
             AND rb.force_active = 1
@@ -117,10 +120,12 @@ BEGIN
         -- 6. Deactivate bits that are NOT in the incoming array
         UPDATE resource_bit
         SET force_active = 0
-     WHERE plc_id = @v_plc_id
-        AND resource_id = @v_resource_id
-        AND force_active = 1
-        AND bit_number NOT IN (SELECT bit_number FROM #incoming_bit_numbers);
+        FROM resource_bit rb
+        INNER JOIN bit b ON rb.bit_id = b.bit_id
+        WHERE rb.plc_id = @v_plc_id
+        AND rb.resource_id = @v_resource_id
+        AND rb.force_active = 1
+        AND b.bit_number NOT IN (SELECT bit_number FROM #incoming_bit_numbers);
 
         -- 7. Process each bit in the JSON array using cursor
         DECLARE bit_cursor CURSOR FOR
@@ -143,43 +148,50 @@ BEGIN
 
         WHILE @@FETCH_STATUS = 0
         BEGIN
+            -- First ensure the bit exists in the bit table
+            IF NOT EXISTS (SELECT 1 FROM bit WHERE bit_number = @name_id)
+            BEGIN
+                INSERT INTO bit (bit_number) VALUES (@name_id);
+            END
+
+            SELECT @v_bit_id = bit_id FROM bit WHERE bit_number = @name_id;
+
             -- Check existing force_active status
-            SELECT @v_existing_force_status = force_active
+            SELECT @v_existing_force_status = force_active, @v_resource_bit_id = resource_bit_id
             FROM resource_bit
             WHERE plc_id = @v_plc_id
             AND resource_id = @v_resource_id
-            AND bit_number = @name_id;
+            AND bit_id = @v_bit_id;
 
             -- Merge operation (insert or update)
             MERGE resource_bit AS target
-            USING (SELECT @v_plc_id AS plc_id, @v_resource_id AS resource_id, @name_id AS bit_number) AS source
+            USING (SELECT @v_plc_id AS plc_id, @v_resource_id AS resource_id, @v_bit_id AS bit_id) AS source
             ON target.plc_id = source.plc_id
                AND target.resource_id = source.resource_id
-               AND target.bit_number = source.bit_number
+               AND target.bit_id = source.bit_id
             WHEN MATCHED THEN
                 UPDATE SET
                     kks = @KKS,
                     var_type = @VAR_Type,
                     comment = @Comment,
                     second_comment = @Second_comment,
-                    value = @Value,
                     force_active = 1
             WHEN NOT MATCHED THEN
-                INSERT (plc_id, resource_id, bit_number, kks, var_type, comment, second_comment, value, force_active)
-                VALUES (@v_plc_id, @v_resource_id, @name_id, @KKS, @VAR_Type, @Comment, @Second_comment, @Value, 1);
+                INSERT (bit_id, plc_id, resource_id, kks, var_type, comment, second_comment, force_active)
+                VALUES (@v_bit_id, @v_plc_id, @v_resource_id, @KKS, @VAR_Type, @Comment, @Second_comment, 1);
 
-            -- Get the bit_id
-            SELECT @v_bit_id = bit_id
+            -- Get the resource_bit_id after merge
+            SELECT @v_resource_bit_id = resource_bit_id
             FROM resource_bit
             WHERE plc_id = @v_plc_id
             AND resource_id = @v_resource_id
-            AND bit_number = @name_id;
+            AND bit_id = @v_bit_id;
 
             -- Create new force reason entry if bit was inactive or didn't exist
             IF @v_existing_force_status IS NULL OR @v_existing_force_status = 0
             BEGIN
-                INSERT INTO bit_force_reason (bit_id, forced_at)
-                VALUES (@v_bit_id, GETDATE());
+                INSERT INTO bit_force_reason (resource_bit_id, value, forced_at)
+                VALUES (@v_resource_bit_id, @Value, GETDATE());
             END
 
             SET @v_bits_count = @v_bits_count + 1;
@@ -210,21 +222,26 @@ BEGIN
 END;
 GO
 
+
 -- =============================================
--- function 4.0 add reason - SQL Server version
+-- function 4.0 add reason - SQL Server version (Updated for new DB structure)
 -- =============================================
 
-CREATE   PROCEDURE insert_force_reason
+DROP PROCEDURE IF EXISTS insert_force_reason;
+
+CREATE PROCEDURE insert_force_reason
     @in_plc_name NVARCHAR(100),
     @in_resource_name NVARCHAR(100),
     @in_bit_number NVARCHAR(20),
     @in_reason NVARCHAR(MAX),
+    @in_melding NVARCHAR(100) = NULL,
     @in_forced_by NVARCHAR(100) = 'UI User'
 AS
 BEGIN
     SET NOCOUNT ON;
 
     DECLARE @v_bit_id INT;
+    DECLARE @v_resource_bit_id INT;
     DECLARE @v_force_id INT;
     DECLARE @v_rows_updated INT;
 
@@ -234,64 +251,74 @@ BEGIN
         message NVARCHAR(MAX)
     );
 
-    -- Find the matching bit_id
-    SELECT @v_bit_id = rb.bit_id
-    FROM resource_bit rb
-    INNER JOIN plc p ON rb.plc_id = p.plc_id
-    INNER JOIN resource r ON rb.resource_id = r.resource_id
-    WHERE p.plc_name = @in_plc_name
-      AND r.resource_name = @in_resource_name
-      AND rb.bit_number = @in_bit_number;
+    BEGIN TRY
+        -- Find the matching resource_bit_id and bit_id
+        SELECT @v_resource_bit_id = rb.resource_bit_id, @v_bit_id = b.bit_id
+        FROM resource_bit rb
+        INNER JOIN plc p ON rb.plc_id = p.plc_id
+        INNER JOIN resource r ON rb.resource_id = r.resource_id
+        INNER JOIN bit b ON rb.bit_id = b.bit_id
+        WHERE p.plc_name = @in_plc_name
+          AND r.resource_name = @in_resource_name
+          AND b.bit_number = @in_bit_number;
 
-    -- Check if bit was found
-    IF @v_bit_id IS NULL
-    BEGIN
-        INSERT INTO #result VALUES (0, 'Bit not found for PLC ' + @in_plc_name + ', Resource ' + @in_resource_name + ', Bit ' + @in_bit_number);
-        SELECT * FROM #result;
-        DROP TABLE #result;
-        RETURN;
-    END
-
-    -- Find the latest force_id for this bit
-    SELECT TOP 1 @v_force_id = force_id
-    FROM bit_force_reason
-    WHERE bit_id = @v_bit_id
-      AND deforced_at IS NULL
-    ORDER BY forced_at DESC;
-
-    -- If no active force reason exists, create a new one
-    IF @v_force_id IS NULL
-    BEGIN
-        INSERT INTO bit_force_reason (bit_id, reason, forced_by, forced_at)
-        VALUES (@v_bit_id, @in_reason, @in_forced_by, GETDATE());
-
-        INSERT INTO #result VALUES (1, 'New force reason created for PLC ' + @in_plc_name + ', Resource ' + @in_resource_name + ', Bit ' + @in_bit_number);
-    END
-    ELSE
-    BEGIN
-        -- Update the existing latest force reason entry
-        UPDATE bit_force_reason
-        SET reason = @in_reason,
-            forced_by = @in_forced_by
-        WHERE force_id = @v_force_id;
-
-        SET @v_rows_updated = @@ROWCOUNT;
-
-        IF @v_rows_updated > 0
+        -- Check if bit was found
+        IF @v_resource_bit_id IS NULL
         BEGIN
-            INSERT INTO #result VALUES (1, 'Force reason updated for PLC ' + @in_plc_name + ', Resource ' + @in_resource_name + ', Bit ' + @in_bit_number);
+            INSERT INTO #result VALUES (0, 'Bit not found for PLC ' + @in_plc_name + ', Resource ' + @in_resource_name + ', Bit ' + @in_bit_number);
+            SELECT * FROM #result;
+            DROP TABLE #result;
+            RETURN;
+        END
+
+        -- Find the latest force_id for this resource_bit
+        SELECT TOP 1 @v_force_id = force_id
+        FROM bit_force_reason
+        WHERE resource_bit_id = @v_resource_bit_id
+          AND deforced_at IS NULL
+        ORDER BY forced_at DESC;
+
+        -- If no active force reason exists, create a new one
+        IF @v_force_id IS NULL
+        BEGIN
+            INSERT INTO bit_force_reason (resource_bit_id, reason, melding, forced_by, forced_at)
+            VALUES (@v_resource_bit_id, @in_reason, @in_melding, @in_forced_by, GETDATE());
+
+            INSERT INTO #result VALUES (1, 'New force reason created for PLC ' + @in_plc_name + ', Resource ' + @in_resource_name + ', Bit ' + @in_bit_number);
         END
         ELSE
         BEGIN
-            INSERT INTO #result VALUES (0, 'Failed to update force reason for PLC ' + @in_plc_name + ', Resource ' + @in_resource_name + ', Bit ' + @in_bit_number);
-        END
-    END
+            -- Update the existing latest force reason entry
+            UPDATE bit_force_reason
+            SET reason = @in_reason,
+                melding = @in_melding,
+                forced_by = @in_forced_by
+            WHERE force_id = @v_force_id;
 
-    -- Set force_active = TRUE if not already active
-    UPDATE resource_bit
-    SET force_active = 1
-    WHERE bit_id = @v_bit_id AND force_active = 0;
+            SET @v_rows_updated = @@ROWCOUNT;
+
+            IF @v_rows_updated > 0
+            BEGIN
+                INSERT INTO #result VALUES (1, 'Force reason updated for PLC ' + @in_plc_name + ', Resource ' + @in_resource_name + ', Bit ' + @in_bit_number);
+            END
+            ELSE
+            BEGIN
+                INSERT INTO #result VALUES (0, 'Failed to update force reason for PLC ' + @in_plc_name + ', Resource ' + @in_resource_name + ', Bit ' + @in_bit_number);
+            END
+        END
+
+        -- Set force_active = TRUE if not already active
+        UPDATE resource_bit
+        SET force_active = 1
+        WHERE resource_bit_id = @v_resource_bit_id AND force_active = 0;
+
+    END TRY
+    BEGIN CATCH
+        DECLARE @error_msg NVARCHAR(MAX) = ERROR_MESSAGE();
+        INSERT INTO #result VALUES (0, 'Error: ' + @error_msg);
+    END CATCH
 
     SELECT * FROM #result;
     DROP TABLE #result;
 END;
+GO
