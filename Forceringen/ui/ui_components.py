@@ -733,6 +733,8 @@ def create_app_ui(host_options):
                         class_="sidebar-top"
                     ),
                     ui.tags.div(
+                        ui.input_action_button("view_search", "🔍 Zoeken", class_="button button1",
+                                               style="width:90%; margin-bottom:8px;"),
                         ui.input_action_button("view_output", "Output", class_="button button1",
                                                style="width:90%; margin-bottom:8px;"),
                         ui.input_action_button("view_config", "Config", class_="button button1",
@@ -757,4 +759,250 @@ def create_app_ui(host_options):
         ui.tags.script(SIDEBAR_JS),
         enter_key_js,
         style="box-sizing: border-box; margin: 0; padding: 0;"
+    )
+
+
+def create_search_view(config):
+    """
+    Creates a comprehensive search view with filtering options.
+    """
+    # Get all unique values for filter dropdowns
+    sftp_hosts = config.get('sftp_hosts', [])
+    all_resources = []
+    all_plcs = []
+
+    for host in sftp_hosts:
+        plc_name = host.get('hostname', host.get('ip_address'))
+        all_plcs.append(plc_name)
+        resources = host.get('resources', [])
+        all_resources.extend(resources)
+
+    # Remove duplicates and sort
+    unique_resources = sorted(list(set(all_resources)))
+    unique_plcs = sorted(list(set(all_plcs)))
+
+    search_filters = ui.tags.div(
+        ui.tags.h3("Zoekfilters", style="margin-bottom: 20px; color: #333;"),
+
+        # Search input row
+        ui.tags.div(
+            ui.tags.div(
+                ui.input_text(
+                    "search_bit_number",
+                    "Sign. Name:",
+                    placeholder="Search on Sign. Name...",
+                    width="100%"
+                ),
+                style="flex: 1; margin-right: 10px;"
+            ),
+            ui.tags.div(
+                ui.input_text(
+                    "search_melding",
+                    "Ticket nr.:",
+                    placeholder="Search on Ticket nr...",
+                    width="100%"
+                ),
+                style="flex: 1; margin-left: 10px;"
+            ),
+            style="display: flex; margin-bottom: 15px;"
+        ),
+        ui.tags.div(
+            ui.tags.div(
+                ui.input_text(
+                    "search_kks",
+                    "KKS Code:",
+                    placeholder="Search on KKS...",
+                    width="100%"
+                ),
+                style="flex: 1; margin-right: 10px;"
+            ),
+            ui.tags.div(
+                ui.input_text(
+                    "search_comment",
+                    "Comment:",
+                    placeholder="Search on comments...",
+                    width="100%"
+                ),
+                style="flex: 1; margin-left: 10px;"
+            ),
+            style="display: flex; margin-bottom: 15px;"
+        ),
+
+        # Filter dropdowns row
+        ui.tags.div(
+            ui.tags.div(
+                ui.input_select(
+                    "filter_plc",
+                    "Filter PLC:",
+                    choices=["All PLCs"] + unique_plcs,
+                    selected="All PLCs",
+                    width="100%"
+                ),
+                style="flex: 1; margin-right: 10px;"
+            ),
+            ui.tags.div(
+                ui.input_select(
+                    "filter_resource",
+                    "Filter on Resource:",
+                    choices=["All Resources"] + unique_resources,
+                    selected="All Resources",
+                    width="100%"
+                ),
+                style="flex: 1; margin-left: 10px;"
+            ),
+            style="display: flex; margin-bottom: 15px;"
+        ),
+
+        # Additional filters row
+        ui.tags.div(
+            ui.tags.div(
+                ui.input_select(
+                    "filter_force_status",
+                    "Force Status:",
+                    choices=["All", "Alone forced", "Alone deforced"],
+                    selected="All",
+                    width="100%"
+                ),
+                style="flex: 1; margin-right: 10px;"
+            ),
+            ui.tags.div(
+                ui.input_select(
+                    "filter_value",
+                    "Value:",
+                    choices=["All", "TRUE", "FALSE"],
+                    selected="All",
+                    width="100%"
+                ),
+                style="flex: 1; margin-left: 10px;"
+            ),
+            style="display: flex; margin-bottom: 20px;"
+        ),
+
+        # Search button
+        ui.tags.div(
+            ui.input_action_button(
+                "search_execute",
+                "🔍 Search",
+                class_="button button1",
+                style="padding: 12px 24px; font-size: 16px; margin-right: 10px;"
+            ),
+            ui.input_action_button(
+                "search_clear",
+                "✖ Clear filter",
+                class_="button button1",
+                style="padding: 12px 24px; font-size: 16px; background-color: #6c757d;"
+            ),
+            style="text-align: center; margin-bottom: 20px;"
+        ),
+
+        style="""
+            background-color: #f8f9fa; 
+            padding: 20px; 
+            border-radius: 8px; 
+            margin-bottom: 20px;
+            border: 1px solid #dee2e6;
+        """
+    )
+
+    # Results section
+    results_section = ui.tags.div(
+        ui.tags.div(
+            ui.tags.h3("Search results", style="margin-bottom: 15px; color: #333;"),
+            ui.output_text("search_results_count", inline=True),
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"
+        ),
+        ui.output_ui("search_results_table"),
+        style="margin-top: 20px;"
+    )
+
+    return ui.tags.div(
+        ui.tags.h2("🔍 Advanced Search", style="margin-bottom: 30px; color: #333;"),
+        search_filters,
+        results_section,
+        create_table_css(),
+        style="max-width: 1400px; margin: 0 auto; padding: 20px;"
+    )
+
+
+def create_search_results_table(filtered_data):
+    """
+    Creates a table to display search results with all relevant information.
+    """
+    if not filtered_data:
+        return ui.tags.div(
+            ui.tags.div(
+                ui.tags.p(
+                    "No results found. Try a different filter.",
+                    style="text-align: center; color: #6c757d; font-style: italic; padding: 40px;"
+                ),
+                style="background-color: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6;"
+            )
+        )
+
+    headers = [
+        "PLC", "Resource", "Sign. Name", "KKS", "Comment", "Second Comment",
+        "Value", "Force Status", "Forced on", "Deforced by", "Ticket nr.", "Reason", "Detail"
+    ]
+
+    header_row = create_table_header(headers)
+
+    rows = []
+    for i, item in enumerate(filtered_data):
+        # Format datetime
+        forced_at = item.get('forced_at')
+        forced_at_str = forced_at.strftime("%d-%m-%Y %H:%M") if forced_at else "Niet geforceerd"
+
+        # Format values
+        comment = format_value_display(item.get('comment', ''))
+        second_comment = format_value_display(item.get('second_comment', ''))
+        forced_by = format_value_display(item.get('forced_by', ''))
+        melding = format_value_display(item.get('melding', ''))
+        reason = format_value_display(item.get('reason', ''))
+
+        force_status = "True" if item.get('force_active') else "False"
+        force_status_color = "#28a745" if item.get('force_active') else "#6c757d"
+
+        cells = [
+            ui.tags.td(item.get('plc_name', ''), style="font-weight: bold;"),
+            ui.tags.td(item.get('resource', '')),
+            ui.tags.td(item.get('bit_number', '')),
+            ui.tags.td(item.get('kks', ''), style="font-family: monospace;"),
+            ui.tags.td(comment),
+            ui.tags.td(second_comment),
+            ui.tags.td(
+                str(item.get('value', '')),
+                style=f"font-weight: bold; color: {'#28a745' if str(item.get('value', '')).upper() == 'TRUE' else '#dc3545'};"
+            ),
+            ui.tags.td(
+                force_status,
+                style=f"font-weight: bold; color: {force_status_color};"
+            ),
+            ui.tags.td(forced_at_str),
+            ui.tags.td(forced_by),
+            ui.tags.td(melding),
+            ui.tags.td(reason),
+            ui.tags.td(
+                ui.input_action_button(
+                    f"search_detail_btn_{i}",
+                    "Detail",
+                    class_="btn btn-primary btn-sm",
+                    style="padding: 4px 8px; font-size: 12px;"
+                )
+            )
+        ]
+
+        row_class = "force-active" if item.get('force_active') else ""
+        rows.append(ui.tags.tr(*cells, class_=row_class))
+
+    table = ui.tags.table(
+        ui.tags.thead(header_row),
+        ui.tags.tbody(*rows),
+        class_="data-grid search-results-table",
+        style="width: 100%; font-size: 14px;"
+    )
+
+    return ui.tags.div(
+        table,
+        class_="data-grid-container",
+        style="overflow-x: auto; background-color: white; border-radius: 8px; border: 1px solid #dee2e6;"
     )

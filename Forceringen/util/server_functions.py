@@ -554,3 +554,133 @@ def create_back_button_handler(inputs, selected_resource, selected_view, plc_bit
             print(f"Refreshed data for PLC {selected_plc()}")
 
     return handle_back_button
+
+def create_search_handler(input, output, session, config):
+    """
+    Creates handlers for search functionality.
+    """
+    
+    def filter_search_data(all_data, search_filters):
+        """
+        Filters data based on search criteria.
+        """
+        if not all_data:
+            return []
+        
+        filtered = all_data.copy()
+        
+        # Filter by KKS
+        if search_filters.get('kks') and search_filters['kks'].strip():
+            kks_term = search_filters['kks'].strip().lower()
+            filtered = [item for item in filtered 
+                       if kks_term in str(item.get('kks', '')).lower()]
+        
+        # Filter by comment
+        if search_filters.get('comment') and search_filters['comment'].strip():
+            comment_term = search_filters['comment'].strip().lower()
+            filtered = [item for item in filtered 
+                       if (comment_term in str(item.get('comment', '')).lower() or
+                           comment_term in str(item.get('second_comment', '')).lower())]
+        
+        # Filter by PLC
+        if search_filters.get('plc') and search_filters['plc'] != "Alle PLCs":
+            filtered = [item for item in filtered 
+                       if item.get('plc_name') == search_filters['plc']]
+        
+        # Filter by Resource
+        if search_filters.get('resource') and search_filters['resource'] != "Alle Resources":
+            filtered = [item for item in filtered 
+                       if item.get('resource') == search_filters['resource']]
+        
+        # Filter by Force Status
+        if search_filters.get('force_status') == "Alleen Geforceerde":
+            filtered = [item for item in filtered if item.get('force_active')]
+        elif search_filters.get('force_status') == "Alleen Niet-geforceerde":
+            filtered = [item for item in filtered if not item.get('force_active')]
+        
+        # Filter by Value
+        if search_filters.get('value') and search_filters['value'] != "Alle":
+            target_value = search_filters['value'].upper()
+            filtered = [item for item in filtered 
+                       if str(item.get('value', '')).upper() == target_value]
+        
+        return filtered
+    
+    @reactive.Effect
+    @reactive.event(input.search_execute)
+    def handle_search():
+        """
+        Handles search execution.
+        """
+        try:
+            # Get all data from all PLCs and resources
+            all_search_data = []
+            sftp_hosts = config.get('sftp_hosts', [])
+            
+            for host in sftp_hosts:
+                plc_name = host.get('hostname', host.get('ip_address'))
+                resources = host.get('resources', [])
+                
+                for resource in resources:
+                    # Get data for this PLC/resource combination
+                    data = sync_with_database(host, resource)
+                    
+                    # Add PLC name to each item
+                    for item in data:
+                        item['plc_name'] = plc_name
+                    
+                    all_search_data.extend(data)
+            
+            # Apply filters
+            search_filters = {
+                'kks': input.search_kks(),
+                'comment': input.search_comment(),
+                'plc': input.filter_plc(),
+                'resource': input.filter_resource(),
+                'force_status': input.filter_force_status(),
+                'value': input.filter_value()
+            }
+            
+            filtered_data = filter_search_data(all_search_data, search_filters)
+            
+            # Store results for detail view - Fixed version
+            if not hasattr(session, 'user_data'):
+                session.user_data = {}
+            session.user_data['search_results'] = filtered_data
+            
+            # Update results count
+            count_text = f"Gevonden: {len(filtered_data)} resultaten"
+            if len(all_search_data) > 0:
+                count_text += f" van {len(all_search_data)} totaal"
+            
+            return {
+                'results': filtered_data,
+                'count': count_text
+            }
+            
+        except Exception as e:
+            print(f"Search error: {e}")
+            return {
+                'results': [],
+                'count': "Fout bij zoeken"
+            }
+    
+    @reactive.Effect
+    @reactive.event(input.search_clear)
+    def handle_clear_filters():
+        """
+        Clears all search filters.
+        """
+        ui.update_text("search_kks", value="")
+        ui.update_text("search_comment", value="")
+        ui.update_select("filter_plc", selected="Alle PLCs")
+        ui.update_select("filter_resource", selected="Alle Resources")
+        ui.update_select("filter_force_status", selected="Alle")
+        ui.update_select("filter_value", selected="Alle")
+        
+        # Clear results - Fixed version
+        if not hasattr(session, 'user_data'):
+            session.user_data = {}
+        session.user_data['search_results'] = []
+    
+    return handle_search, handle_clear_filters
