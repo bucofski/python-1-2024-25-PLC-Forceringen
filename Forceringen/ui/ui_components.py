@@ -945,7 +945,6 @@ def create_search_results_table(filtered_data):
     ]
 
     header_row = create_table_header(headers)
-
     rows = []
     for i, item in enumerate(filtered_data):
         # Format datetime

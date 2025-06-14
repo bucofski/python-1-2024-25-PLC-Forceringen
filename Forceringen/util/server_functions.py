@@ -677,8 +677,7 @@ def create_search_handler(input, output, session, config):
         ui.update_select("filter_resource", selected="Alle Resources")
         ui.update_select("filter_force_status", selected="Alle")
         ui.update_select("filter_value", selected="Alle")
-        
-        # Clear results - Fixed version
+
         if not hasattr(session, 'user_data'):
             session.user_data = {}
         session.user_data['search_results'] = []

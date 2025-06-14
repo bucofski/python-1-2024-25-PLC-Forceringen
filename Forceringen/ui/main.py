@@ -468,17 +468,14 @@ def server(inputs, outputs, session):
     def handle_search_execute():
         try:
             current_cfg = current_config()
-            
-            # Use existing data instead of syncing again
+
             existing_data = plc_bits_data.get()
-            
-            # If no existing data, create empty structure
+
             if not existing_data:
                 all_search_data = []
             else:
                 all_search_data = existing_data.copy()
-            
-            # Apply filters (uitgebreid met bit_number en melding)
+
             search_filters = {
                 'kks': inputs.search_kks() if hasattr(inputs, 'search_kks') else '',
                 'comment': inputs.search_comment() if hasattr(inputs, 'search_comment') else '',
