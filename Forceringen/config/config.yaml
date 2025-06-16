@@ -1,6 +1,6 @@
-username: "Commissioning"
-password: "alspasupport"
-port: 22000
+username: "pi"
+password: "raspberry"
+port: 22
 
 ### SQL_SERVER info
 database:

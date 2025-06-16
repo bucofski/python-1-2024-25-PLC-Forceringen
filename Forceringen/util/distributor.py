@@ -1,3 +1,4 @@
+
 """
 PLC Data Distributor Module
 
@@ -75,7 +76,9 @@ def main():
     """
 
     start = datetime.now()
-    config_loader = ConfigLoader("../config/plc.yaml")
+    # Import config_path to use the centralized configuration
+    from Forceringen.config.config_path import config_path
+    config_loader = config_path.create_config_loader()
 
     host_selection = select_sftp_host(config_loader)
     if not host_selection:
@@ -122,9 +125,13 @@ def run_main_with_host(config_loader, selected_host_name, is_gui_context=False):
         return
 
     hostname = host_cfg.get('ip_address', host_cfg.get('hostname'))
-    port = host_cfg['port']
-    username = host_cfg['username']
-    password = host_cfg['password']
+    # Use the merged configuration which now includes port, username, password from config.yaml
+    port = host_cfg.get('port')
+    username = host_cfg.get('username')
+    password = host_cfg.get('password')
+
+    # Debug print to verify the merged configuration
+    print(f"Connecting to {hostname}:{port} with user {username}")
 
     # UPDATED: Changed file path pattern from {hostname}/{resource}/for.dat to /ide0/{resource}/for.dat
     resources = host_cfg.get('resources', [])
