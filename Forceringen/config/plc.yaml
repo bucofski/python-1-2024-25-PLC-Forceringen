@@ -27,6 +27,29 @@ sftp_hosts:
       - "House"
     db_path: "//SVKWA337/Pilot_Project/Rxi/AFV/controller.ctrl/controller_l.mdb"
 
+  - hostname: "BTEST"
+    ip_address: "192.168.0.169"
+    port: "22"
+    username: "pi"
+    password: "raspberry"
+    resources:
+      - "NIET"
+      - "KMOR"
+      - "WT2"
+    db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
+
+  - hostname: "TDS"
+    ip_address: "192.168.0.169"
+    port: "22"
+    username: "pi"
+    password: "raspberry"
+    resources:
+      - "NIET"
+      - "WT1"
+      - "House"
+    db_path: "C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
+
+
 ### SQL_SERVER info
 # database views
 #database:

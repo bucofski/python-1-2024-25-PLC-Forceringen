@@ -608,7 +608,7 @@ def create_search_handler(input, output, session, config):
     
     @reactive.Effect
     @reactive.event(input.search_execute)
-    def handle_search():
+    async def handle_search():  # Make this async
         """
         Handles search execution.
         """
@@ -617,17 +617,28 @@ def create_search_handler(input, output, session, config):
             all_search_data = []
             sftp_hosts = config.get('sftp_hosts', [])
             
+            # You'll need to pass the config_loader to this function
+            # For now, create a temporary ConfigLoader from the config
+            from Forceringen.util.config_manager import ConfigLoader
+            from Forceringen.config.config_path import config_path
+            config_loader = ConfigLoader(str(config_path.get_path()))
+            
+            # Create a repository to fetch data
+            from Forceringen.Database.fetch_bits_db import PLCBitRepositoryAsync
+            repo = PLCBitRepositoryAsync(config_loader)
+            
             for host in sftp_hosts:
                 plc_name = host.get('hostname', host.get('ip_address'))
                 resources = host.get('resources', [])
                 
                 for resource in resources:
-                    # Get data for this PLC/resource combination
-                    data = sync_with_database(host, resource)
+                    # Get data for this PLC/resource combination using the repository
+                    data = await repo.fetch_plc_bits(plc_name, resource_name=resource)
                     
-                    # Add PLC name to each item
+                    # Add PLC name and resource to each item
                     for item in data:
                         item['plc_name'] = plc_name
+                        item['resource'] = resource
                     
                     all_search_data.extend(data)
             
