@@ -1,4 +1,3 @@
-
 """
 PLC Management and Monitoring Shiny Application
 
@@ -18,13 +17,15 @@ from Forceringen.ui.ui_components import (
     create_resource_table, create_plc_table, create_detail_view,
     create_config_view, create_output_view
 )
-from Forceringen.util.server_functions import (
-    run_distributor_and_capture_output, validate_yaml, update_configuration,
-    update_ui_components, sync_with_database,
-    create_resource_click_handler, create_plc_click_handler,
-    create_detail_click_handler, create_save_reason_handler,
+from Forceringen.ui.config_management import validate_yaml, update_configuration
+from Forceringen.ui.click_handlers import (
+    create_resource_click_handler,
+    create_plc_click_handler,
+    create_detail_click_handler,
     create_back_button_handler
 )
+from Forceringen.ui.data_management import create_save_reason_handler
+from Forceringen.ui.database_sync import sync_with_database
 import os
 
 try:
