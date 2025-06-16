@@ -3,6 +3,7 @@ import sys
 import io
 from shiny import ui
 from Forceringen.util import distributor
+from Forceringen.util.config_manager import ConfigLoader  # Add this import
 
 
 def run_distributor_and_capture_output(config_obj, selected_host_value):
@@ -80,14 +81,18 @@ def update_configuration(yaml_content, test_config, config_loader, save_message)
     Date: 03/06/2025
     Author: TOVY
     """
-    # Save to file
-    config_loader.save_config(yaml_content)
-    save_message.set("Configuration saved successfully!")
+    try:
+        # Save to file
+        config_loader.save_config(yaml_content)
+        save_message.set("Configuration saved successfully!")
 
-    # Reinitialize config loader
-    config_loader = ConfigLoader(yaml_path=config_loader.yaml_path)
+        # Reinitialize config loader
+        new_config_loader = ConfigLoader(yaml_path=config_loader.yaml_path)
 
-    return test_config, config_loader
+        return test_config, new_config_loader
+    except Exception as e:
+        save_message.set(f"Error saving configuration: {str(e)}")
+        return test_config, config_loader
 
 
 def update_ui_components(config_loader, inputs, selected_resource, resource_buttons_trigger):
