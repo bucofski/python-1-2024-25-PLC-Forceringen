@@ -1,0 +1,13 @@
+
+database:
+  host: "localhost"
+  port: 1433
+  database: "Overrides"
+  trusted_connection: true
+  driver: "ODBC Driver 17 for SQL Server"
+  # Add these for Driver 18 if you get SSL/encryption errors:
+  encrypt: "no"  # or "optional" for local development
+  trust_server_certificate: "yes"
+
+  plc_config_file: "plc.yaml"
+  credentials_file: "credentials.yaml"

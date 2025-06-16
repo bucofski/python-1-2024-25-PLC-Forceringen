@@ -145,11 +145,11 @@ BUTTON_STYLES = """
 def format_value_display(value, default=''):
     """
     Helper function to format None values as empty strings.
-    
+
     Parameters:
         value: The value to format
         default: Default value if value is None or 'None'
-    
+
     Returns:
         Formatted string value
     """
@@ -158,20 +158,20 @@ def format_value_display(value, default=''):
 def create_button_with_selection(btn_id, text, is_selected=False, style_override="width:90%; margin-bottom:8px;"):
     """
     Helper function to create buttons with consistent styling and selection state.
-    
+
     Parameters:
         btn_id: Button ID
         text: Button text
         is_selected: Whether button should have selected class
         style_override: Custom style string
-    
+
     Returns:
         UI button element
     """
     class_name = "button button1"
     if is_selected:
         class_name += " selected"
-    
+
     return ui.input_action_button(
         btn_id, text,
         class_="button button1",
@@ -189,7 +189,7 @@ def create_resource_buttons_ui(config, inputs, selected_resource, selected_plc):
     if not selected_hosts or selected_hosts == "all":
         if not sftp_hosts:
             return ui.tags.p("No PLCs found.")
-        
+
         plc_buttons = [
             create_button_with_selection(
                 f"plc_{i}",
@@ -202,7 +202,7 @@ def create_resource_buttons_ui(config, inputs, selected_resource, selected_plc):
 
     host_cfg = next((host for host in sftp_hosts
                      if host.get('hostname') == selected_hosts or host.get('ip_address') == selected_hosts), None)
-    
+
     if not host_cfg:
         return ui.tags.p("No resources found for this PLC.")
 
@@ -218,7 +218,7 @@ def create_resource_buttons_ui(config, inputs, selected_resource, selected_plc):
         )
         for i, resource in enumerate(resources)
     ]
-    
+
     return ui.tags.div(*buttons)
 
 def create_table_css():
@@ -230,10 +230,10 @@ def create_table_css():
 def create_table_header(headers):
     """
     Helper function to create table headers.
-    
+
     Parameters:
         headers: List of header strings
-    
+
     Returns:
         Table header row element
     """
@@ -243,37 +243,37 @@ def create_table_header(headers):
 def create_table_row(item, index, include_reason_inputs=True, include_resource=False):
     """
     Helper function to create table rows with consistent formatting.
-    
+
     Parameters:
         item: Data item dictionary
         index: Row index
         include_reason_inputs: Whether to include reason/forced_by inputs
         include_resource: Whether to include resource column
-    
+
     Returns:
         Table row element
     """
     # Format datetime
     forced_at = item.get('forced_at')
     forced_at_str = forced_at.strftime("%d-%m-%Y") if forced_at else ""
-    
+
     # Format values
     comment = format_value_display(item.get('comment', ''))
     second_comment = format_value_display(item.get('second_comment', ''))
     forced_by = format_value_display(item.get('forced_by', ''))
     melding = format_value_display(item.get('melding', ''))
     reason = format_value_display(item.get('reason', ''))
-    
+
     # Create row class
     row_class = "force-active" if item.get('force_active') else ""
-    
+
     # Base cells
     cells = []
-    
+
     # Add resource column if needed
     if include_resource:
         cells.append(ui.tags.td(item.get('resource', '')))
-    
+
     # Common cells
     cells.extend([
         ui.tags.td(item.get('bit_number', '')),
@@ -283,7 +283,7 @@ def create_table_row(item, index, include_reason_inputs=True, include_resource=F
         ui.tags.td(item.get('value', '')),
         ui.tags.td(forced_at_str),
     ])
-    
+
     # Add input fields if needed
     if include_reason_inputs:
         cells.extend([
@@ -293,7 +293,7 @@ def create_table_row(item, index, include_reason_inputs=True, include_resource=F
         ])
     else:
         cells.append(ui.tags.td(forced_by))
-    
+
     # Add detail button
     cells.append(
         ui.tags.td(ui.input_action_button(
@@ -303,7 +303,7 @@ def create_table_row(item, index, include_reason_inputs=True, include_resource=F
             style="padding: 4px 8px; font-size: 12px;"
         ))
     )
-    
+
     return ui.tags.tr(*cells, class_=row_class, id=f"bit_row_{index}")
 
 def create_resource_table(data, selected_resource, selected_plc):
@@ -355,7 +355,7 @@ def create_plc_table(data, selected_plc):
     ]
 
     header_row = create_table_header(headers)
-    rows = [create_table_row(item, i, include_reason_inputs=False, include_resource=True) 
+    rows = [create_table_row(item, i, include_reason_inputs=False, include_resource=True)
             for i, item in enumerate(data)]
 
     table = ui.tags.table(
@@ -374,12 +374,12 @@ def create_plc_table(data, selected_plc):
 def create_info_card(title, content_dict, style_class="background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px;"):
     """
     Helper function to create information cards.
-    
+
     Parameters:
         title: Card title
         content_dict: Dictionary of label-value pairs
         style_class: CSS style string
-    
+
     Returns:
         Styled div element
     """
@@ -390,7 +390,7 @@ def create_info_card(title, content_dict, style_class="background-color: #f8f9fa
         )
         for label, value in content_dict.items()
     ]
-    
+
     return ui.tags.div(
         ui.tags.h3(title),
         ui.tags.div(*content_items, style=style_class)
@@ -465,22 +465,22 @@ def create_detail_view(bit_data, history_data):
     if history_data:
         history_headers = ["Forced at", "Deforced at", "Value", "Ticket nr.", "Forced by", "Reason"]
         history_header_row = create_table_header(history_headers)
-        
+
         history_rows = []
         for hist_item in history_data:
             forced_at_hist = hist_item.get('forced_at')
             forced_at_str_hist = forced_at_hist.strftime("%d-%m-%Y %H:%M:%S") if forced_at_hist else "N/A"
-            
+
             deforced_at_hist = hist_item.get('deforced_at')
             deforced_at_str_hist = (
-                deforced_at_hist.strftime("%d-%m-%Y %H:%M:%S") if deforced_at_hist 
+                deforced_at_hist.strftime("%d-%m-%Y %H:%M:%S") if deforced_at_hist
                 else ("Still Active" if hist_item == history_data[0] else "N/A")
             )
             valued_hist = hist_item.get('value')
             order_hist = hist_item.get('melding')
             forced_by_hist = format_value_display(hist_item.get('forced_by', 'Unknown'), 'Unknown')
             reason_hist = format_value_display(hist_item.get('reason', 'No reason'), 'No reason')
-            
+
             hist_cells = [
                 ui.tags.td(forced_at_str_hist),
                 ui.tags.td(deforced_at_str_hist),
@@ -489,7 +489,7 @@ def create_detail_view(bit_data, history_data):
                 ui.tags.td(forced_by_hist),
                 ui.tags.td(reason_hist)
             ]
-            
+
             history_rows.append(ui.tags.tr(*hist_cells))
 
         history_table = ui.tags.table(
@@ -547,7 +547,8 @@ def create_config_view(yaml_path):
                 "yaml_editor",
                 label=None,
                 value=yaml_content,
-                height="800px",
+                rows=50,
+                cols=100,
                 width="100%",
                 resize="both"
             ),
@@ -689,7 +690,7 @@ def create_app_ui(host_options):
         # All CSS in one place
         ui.tags.style(MAIN_STYLES),
         ui.tags.style(BUTTON_STYLES),
-        
+
         # Top bar
         ui.tags.div(
             ui.tags.h1(
@@ -708,10 +709,10 @@ def create_app_ui(host_options):
                 z-index: 100;
             """
         ),
-        
+
         # Sidebar toggle button
         ui.tags.button("☰", id="sidebarToggle", class_="sidebar-toggle"),
-        
+
         # Page layout
         ui.tags.div(
             # Sidebar

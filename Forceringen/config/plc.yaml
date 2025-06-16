@@ -1,17 +1,10 @@
 local_base_dir: "C:/Overrides/"
 department_name: "BT2"
-# this is so because if there is a difference in PLC connection
-# then it can be changed on PLC level
-username: &username "Commissioning"
-password: &password "alspasupport"
-port: &port 22000
+
 
 sftp_hosts:
   - hostname: "AFV"
     ip_address: "10.243.13.85"
-    port: *port
-    username: *username
-    password: *password
     resources:
       - "Insp"
       - "House"
@@ -20,28 +13,6 @@ sftp_hosts:
 
   - hostname: "REG"
     ip_address: "10.243.13.89"
-    port: *port
-    username: *username
-    password: *password
     resources:
       - "House"
     db_path: "//SVKWA337/Pilot_Project/Rxi/AFV/controller.ctrl/controller_l.mdb"
-
-### SQL_SERVER info
-# database views
-#database:
-#  host: "localhost"
-#  port: 1433
-#  database: "master"
-#  user: "postgres"
-#  password: "Test123"
-
-database:
-  host: "localhost"
-  port: 1433
-  database: "Overrides"
-  trusted_connection: true
-  driver: "ODBC Driver 17 for SQL Server"
-  # Add these for Driver 18 if you get SSL/encryption errors:
-  encrypt: "no"  # or "optional" for local development
-  trust_server_certificate: "yes"
