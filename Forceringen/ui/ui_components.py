@@ -547,7 +547,8 @@ def create_config_view(yaml_path):
                 "yaml_editor",
                 label=None,
                 value=yaml_content,
-                height="800px",
+                rows=50,
+                cols=100,
                 width="100%",
                 resize="both"
             ),
