@@ -89,15 +89,15 @@ if __name__ == "__main__":
     start = datetime.now()
 
     # Read and process the input file only once
-    words_list = FileReader("../tests/BTEST_NIET.dat").read_and_parse_file()
+    words_list = FileReader("../tests/TDS_PilootTD.dat").read_and_parse_file()
     processed_words = list(DataProcessor.convert_and_process_list(words_list))
 
     # Initialize database searcher and perform search within context manager
-    db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
-    custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
+    db_path = r"C:/Users/tom_v/Downloads/controller_l.mdb"
+    custom_query = "SELECT *, SecondComment FROM PilootTD WHERE Name IN ({placeholders})"
     with DatabaseSearcher(db_path) as searcher:
-        results = searcher.search(processed_words, query_template=custom_query, department_name="bt2", plc="BTEST",
-                                  resource="NIET")
+        results = searcher.search(processed_words, query_template=custom_query, department_name="bt2", plc="TDS",
+                                  resource="PilootTD")
 
     # Convert bits
     bit_converter = BitConversion(results)

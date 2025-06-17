@@ -160,15 +160,21 @@ if __name__ == "__main__":
         """
         try:
             config_loader = ConfigLoader(str(config_path.get_path()))
-            words_list = FileReader("../tests/BTEST_NIET.dat").read_and_parse_file()
+            words_list = FileReader("../tests/TDS_PilootTD.dat").read_and_parse_file()
             data_list = list(DataProcessor.convert_and_process_list(words_list))
 
-            db_path = r"C:/Users/tom_v/OneDrive/Documenten/database/project/controller_l.mdb"
-            custom_query = "SELECT *, SecondComment FROM NIET WHERE Name IN ({placeholders})"
+            db_path = r"C:/Users/tom_v/Downloads/controller_l.mdb"
+            custom_query = "SELECT *, SecondComment FROM PilootTD WHERE Name IN ({placeholders})"
+
+
+
+            # Initialize database searcher and perform search within context manager
+
+
 
             with DatabaseSearcher(db_path) as searcher:
-                results = searcher.search(data_list, query_template=custom_query, department_name="bt2", plc="BTEST",
-                                          resource="NIET")
+                results = searcher.search(data_list, query_template=custom_query, department_name="bt2", plc="TDS",
+                                          resource="PilootTD")
 
             # Run the database write in async context
             writer = BitConversionDBWriter(results, config_loader)

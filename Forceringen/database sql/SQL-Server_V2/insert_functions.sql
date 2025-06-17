@@ -4,6 +4,13 @@
 
 DROP PROCEDURE IF EXISTS upsert_plc_bits;
 
+
+-- =============================================
+-- function 4.0 change loggings - SQL Server version (Updated for new DB structure)
+-- =============================================
+
+DROP PROCEDURE IF EXISTS upsert_plc_bits;
+
 CREATE PROCEDURE upsert_plc_bits
     @p_plc_name NVARCHAR(100),
     @p_resource_name NVARCHAR(100),
@@ -187,11 +194,26 @@ BEGIN
             AND resource_id = @v_resource_id
             AND bit_id = @v_bit_id;
 
-            -- Create new force reason entry if bit was inactive or didn't exist
+            -- Handle force reason: create new or update existing active one
             IF @v_existing_force_status IS NULL OR @v_existing_force_status = 0
             BEGIN
+                -- Create new force reason entry for newly activated bit
                 INSERT INTO bit_force_reason (resource_bit_id, value, forced_at)
                 VALUES (@v_resource_bit_id, @Value, GETDATE());
+            END
+            ELSE
+            BEGIN
+                -- Update the existing active force reason with new value
+                UPDATE bit_force_reason
+                SET value = @Value
+                WHERE resource_bit_id = @v_resource_bit_id
+                AND deforced_at IS NULL
+                AND force_id = (
+                    SELECT MAX(force_id)
+                    FROM bit_force_reason
+                    WHERE resource_bit_id = @v_resource_bit_id
+                    AND deforced_at IS NULL
+                );
             END
 
             SET @v_bits_count = @v_bits_count + 1;
