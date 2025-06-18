@@ -288,7 +288,7 @@ def create_table_row(item, index, include_reason_inputs=True, include_resource=F
     if include_reason_inputs:
         cells.extend([
             ui.tags.td(ui.input_text(f"forced_input_{index}", "", value=forced_by, placeholder="Enter user...")),
-            ui.tags.td(ui.input_text(f"melding_input_{index}", "", value=melding, placeholder="Enter user...")),
+            ui.tags.td(ui.input_text(f"melding_input_{index}", "", value=melding, placeholder="Enter order nr...")),
             ui.tags.td(ui.input_text(f"reason_input_{index}", "", value=reason, placeholder="Enter reason...")),
         ])
     else:
@@ -319,7 +319,7 @@ def create_resource_table(data, selected_resource, selected_plc):
 
     headers = [
         "Sign. Name", "KKS", "Comment", "Second Comment", "Value",
-        "Forced at", "Forced by","Ticket nr.", "Reason", "Details"
+        "Forced at", "Forced by","Order nr.", "Reason", "Details"
     ]
 
     header_row = create_table_header(headers)
@@ -448,8 +448,8 @@ def create_detail_view(bit_data, history_data):
                 style="margin-bottom: 10px;"
             ),
             ui.tags.div(
-                ui.tags.strong("Ticket nr.: "),
-                ui.input_text("melding_input_detail", "", value=melding, placeholder="Enter ticket..."),  # FIX: Use 'melding' here
+                ui.tags.strong("Order nr.: "),
+                ui.input_text("melding_input_detail", "", value=melding, placeholder="Enter order nr..."),  # FIX: Use 'melding' here
                 style="margin-bottom: 10px;"
             ),
             ui.tags.div(
